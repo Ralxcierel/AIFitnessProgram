@@ -1,0 +1,32 @@
+# Secrets — never commit
+.env
+.env.local
+.env.*.local
+
+# Local data (may contain personal information)
+backend/data/
+
+# Dev caches
+eval/cache/
+.cache/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Node / Angular
+node_modules/
+dist/
+.angular/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs (usage.jsonl IS committed — it holds no prompts or personal data)
+logs/*.log

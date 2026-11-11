@@ -1,0 +1,18 @@
+description = "Start a work session: sync, pick up from PROGRESS.md, and ask before doing anything"
+
+prompt = """
+Begin a work session on this project. Follow AGENTS.md section 5.1 exactly. In order:
+
+1. Read AGENTS.md in full, then PROGRESS.md, then the sections of docs/DESIGN.md for the workstream that PROGRESS.md -> "Next up" points to.
+2. Run `git status`. If there are uncommitted changes, stop and ask me what they are before anything else.
+3. Ask my permission to run `git pull`, explaining in one line what it does. Run it only after I say yes. If it reports a conflict or anything unexpected, stop and explain in plain words.
+4. Ask me, in one short message:
+   - What is your name?
+   - Which workstream are you working on: A (Profile), B (Plan), or C (Platform)? Suggest the one "Next up" points to and say why in one line.
+   - About how long do you have this session?
+   - Has anything changed since the last session that I should know about?
+5. After I answer: if "Open questions" in PROGRESS.md has anything for me or my workstream, ask those questions now, in one message.
+6. Give me a summary of at most 5 lines: where my workstream stands, the next step, the files you expect to touch, and any blocker. Then wait for me to say "go".
+
+Do not create, edit, or delete any file, and do not call the OpenAI API, during this command. Keep your messages short and plain; I may be new to this.
+"""

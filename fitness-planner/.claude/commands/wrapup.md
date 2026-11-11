@@ -1,0 +1,20 @@
+---
+description: End the session — record progress in PROGRESS.md, log AI use, commit and push (with permission)
+---
+
+I'm done for this session. Wrap up following AGENTS.md section 5.3 exactly. In order:
+
+1. Start no new work. If a change is half-done, tell me exactly what is unfinished and ask: finish it quickly, revert it, or leave it and record it?
+2. Ask permission, then run the back-end tests (and the front-end tests if any exist). Record the result even if tests fail.
+3. Show me, in a few lines, the updates you plan to make to `PROGRESS.md`, then make them after I say yes:
+   - *Status board* — every step touched this session.
+   - *Next up* — the single next action, specific enough that a new agent can start it cold.
+   - *Open questions* — anything unresolved, each addressed to a person or workstream.
+   - *Decisions log* — any decision I made this session.
+   - *Session log* — a new entry at the top, using the template in the file, including every file created, modified, or deleted.
+4. Add one line to `docs/AI_USE.md`: date, my name, the tool, what it did, and how the output was checked.
+5. Show me the file list from `git status`. Confirm `.env` and database files are not included. Ask permission, then commit with message `wrapup: <my name> <today's date> — <one-line summary>`.
+6. Ask permission, then `git push`. Confirm it succeeded with `git status`.
+7. Tell me in 2–3 lines what the next person will see when they run `/start`.
+
+Explain each git command in one plain line before running it.
