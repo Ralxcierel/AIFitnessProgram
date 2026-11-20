@@ -10,7 +10,7 @@ Agents: read this at `/start`, update the step status as you finish each step, a
 
 ## Next up
 
-**Workstream C, step C0:** create the scaffold — FastAPI app with `/api/health`, Angular shell with routing and an API service, `backend/requirements.txt`, and run instructions in `README.md`. Done when both run locally and the browser shows the health status from the back end. See `docs/DESIGN.md` §3 and §9.
+**Workstream C, step C0 — front-end slice:** the back end (`backend/app/main.py`, `GET /api/health`) is done. Next: generate the Angular app in `fitness-planner/frontend/` with `npx @angular/cli@latest new frontend` (approved by Ben 2026-11-20), add routing, `src/app/core/api.service.ts`, a home page that shows the health status, and a dev proxy (`proxy.conf.json`) that forwards `/api` to `http://127.0.0.1:8000`. Then add run instructions to `README.md` (note: on Ben's Windows machine use `py`, not `python`). Done when both run locally and the browser shows the health status from the back end. See `docs/DESIGN.md` §3 and §9.
 
 *(Whoever starts first should take workstream C, unless the team agrees otherwise.)*
 
@@ -20,7 +20,7 @@ Status: Not started · In progress · Done · Blocked
 
 | ID | Step | Phase | Owner | Status | Last session |
 |---|---|---|---|---|---|
-| C0 | Scaffold (FastAPI health, Angular shell, run instructions) | 0 | ? | Not started | — |
+| C0 | Scaffold (FastAPI health, Angular shell, run instructions) | 0 | ? | In progress (back end done; front end + README next) | 2026-11-20 Ben |
 | C1 | `call_model()` + usage log + dev cache | 0 | ? | Not started | — |
 | C2 | Finalize `schemas.py` + `api.types.ts` | 0 | ? | Not started | — |
 | A1 | Profile chat endpoint | 1 | ? | Not started | — |
@@ -56,6 +56,10 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 
 | Date | Decision | Decided by |
 |---|---|---|
+| 2026-11-20 | `backend/` and `frontend/` live inside `fitness-planner/` | Ben |
+| 2026-11-20 | Add `uvicorn` to `backend/requirements.txt` (server that runs FastAPI); versions bounded: `fastapi>=0.115,<1`, `uvicorn>=0.30,<1`, `pydantic>=2,<3` | Ben |
+| 2026-11-20 | Create the front end with the official Angular generator (`npx @angular/cli@latest new`) | Ben |
+| 2026-11-20 | Assume `gpt-6-luna` is the only text model for now (no small-vs-large baseline unless that changes) | Ben |
 | 2026-11-11 | Product is a **web app**: Angular front end + FastAPI back end + SQLite | Ben (for team) |
 | 2026-11-11 | Model: `gpt-6-luna` from the course notebook for all text tasks | Ben (for team) |
 | 2026-11-11 | Demo scope: profile chat, `.ics` → weekly plan, workout log; meal photos, calorie tracking, open Q&A deferred | Ben (for team) |
