@@ -24,7 +24,7 @@ Status: Not started · In progress · Done · Blocked
 | C1 | `call_model()` + usage log + dev cache | 0 | ? | Not started | — |
 | C2 | Finalize `schemas.py` + `api.types.ts` | 0 | ? | Not started | — |
 | A1 | Profile chat endpoint | 1 | ? | Not started | — |
-| B1 | `.ics` parser + free slots + fixtures | 1 | ? | Not started | — |
+| B1 | `.ics` parser + free slots + fixtures | 1 | Jadon | Done | 2026-11-20 |
 | B2 | Plan generation endpoint | 1 | ? | Not started | — |
 | A3 | Angular profile page (minimal → full) | 1–2 | ? | Not started | — |
 | B4 | Angular calendar upload + plan view (minimal → full) | 1–2 | ? | Not started | — |
@@ -48,7 +48,8 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 - [ ] **C / team:** Does the course notebook offer a smaller text model besides `gpt-6-luna`? If yes, add a small-vs-large baseline (DESIGN.md §10).
 - [ ] **C:** Per-token prices for `gpt-6-luna` (for `.env` → `PRICE_INPUT_PER_1M`, `PRICE_OUTPUT_PER_1M`).
 - [ ] **Team:** Single local user with no login for the demo (DESIGN.md §2) — confirm.
-- [ ] **B:** Free-slot defaults — minimum 45 min, between 06:00 and 22:00 local time — confirm.
+- [x] **B:** Free-slot defaults — minimum 45 min, between 06:00 and 22:00 local time — confirmed by Jadon.
+- [ ] **B / C:** Wire `POST /api/calendar` endpoint once FastAPI scaffold in C0 is merged.
 - [ ] **A / team:** Do we attempt the voice-input stretch goal? Decide by the end of Phase 2.
 - [ ] **Team:** Does the instructor need an addendum to the proposal for the scope change (meal photos and diet tracking deferred)?
 
@@ -56,6 +57,7 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 
 | Date | Decision | Decided by |
 |---|---|---|
+| 2026-11-20 | Free-slot defaults: minimum 45 min, between 06:00 and 22:00 local time | Jadon |
 | 2026-11-11 | Product is a **web app**: Angular front end + FastAPI back end + SQLite | Ben (for team) |
 | 2026-11-11 | Model: `gpt-6-luna` from the course notebook for all text tasks | Ben (for team) |
 | 2026-11-11 | Demo scope: profile chat, `.ics` → weekly plan, workout log; meal photos, calorie tracking, open Q&A deferred | Ben (for team) |
