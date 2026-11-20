@@ -4,4 +4,5 @@ The course requires us to disclose which AI tools we used, for which parts, and 
 
 | Date | Who | Tool | What the AI did | How it was checked |
 |---|---|---|---|---|
+| 2026-11-20 | Ben | Claude Code | Wrote the C0 back-end scaffold (FastAPI `/api/health`, `requirements.txt`) and updated `PROGRESS.md` | Ran the server and checked `/api/health` returned ok; one reviewer agent checked the files; Ben approved each step |
 | 2026-11-11 | Ben | Claude (claude.ai) | Drafted the design doc, agent rules (`AGENTS.md`), session commands, and progress file | Reviewed and edited by Ben against the course requirements |
