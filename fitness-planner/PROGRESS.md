@@ -88,6 +88,25 @@ Newest first. Copy the template for each new session.
 - **Notes for the next person:**
 -->
 
+### 2026-11-20 — Jadon — Gemini CLI — Workstream B
+
+- **Goal this session:** Implement Step B1 (.ics calendar parser, synthetic test fixtures, and free slot calculation).
+- **Steps worked on:** B1 (Done).
+- **What was done:**
+  - Implemented `.ics` file parsing in `calendar_ics.py` extracting busy windows and calculating free slots (>= 45 min, 06:00 to 22:00 window).
+  - Created 3 synthetic test calendar fixtures (`empty.ics`, `normal.ics`, `packed.ics`) with generic placeholder events.
+  - Added 6 unit tests in `test_calendar_ics.py` testing standard, busy, edge cases, and RFC 5545 non-inclusive all-day events.
+  - Initialized `requirements.txt` with `icalendar`, `pytest`, `pydantic`.
+- **Files created / modified / deleted:**
+  - created: `fitness-planner/backend/requirements.txt`, `fitness-planner/backend/app/calendar_ics.py`, `fitness-planner/backend/tests/test_calendar_ics.py`, `fitness-planner/eval/fixtures/empty.ics`, `fitness-planner/eval/fixtures/normal.ics`, `fitness-planner/eval/fixtures/packed.ics`
+  - modified: `fitness-planner/PROGRESS.md`, `fitness-planner/docs/AI_USE.md`
+  - deleted: none
+- **Tests:** `python3 -m pytest fitness-planner/backend/tests/test_calendar_ics.py` — 6 passed in 1.86s.
+- **Reviews:** Section review performed by reviewer agent; caught all-day event non-inclusive DTEND bug. Fixed and re-checked by fresh reviewer agent — final verdict PASS.
+- **Unfinished or left as-is:** `POST /api/calendar` route wiring awaits C0 FastAPI scaffold.
+- **Pushed:** pending push at wrapup.
+- **Notes for the next person:** Step B1 parser and fixtures are ready in `fitness-planner/backend/app/calendar_ics.py`. Next up is step C0 (scaffolding FastAPI and Angular).
+
 ### 2026-11-11 — Ben — Claude (claude.ai) — Planning
 
 - **Goal this session:** design the project and the agent workflow.
