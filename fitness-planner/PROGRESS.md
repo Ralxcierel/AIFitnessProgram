@@ -50,6 +50,7 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 - [ ] **Team:** Single local user with no login for the demo (DESIGN.md §2) — confirm.
 - [ ] **B:** Free-slot defaults — minimum 45 min, between 06:00 and 22:00 local time — confirm.
 - [ ] **A / team:** Do we attempt the voice-input stretch goal? Decide by the end of Phase 2.
+- [ ] **C:** Add `pytest` and `httpx` to `backend/requirements.txt` so `/api/health` (and later steps) get automated tests with FastAPI's `TestClient`? Needs approval (new dependencies).
 - [ ] **Team:** Does the instructor need an addendum to the proposal for the scope change (meal photos and diet tracking deferred)?
 
 ## Decisions log
@@ -89,6 +90,25 @@ Newest first. Copy the template for each new session.
 - **Pushed:** yes / no (reason)
 - **Notes for the next person:**
 -->
+
+### 2026-11-20 — Ben — Claude Code — Workstream C
+
+- **Goal this session:** start Phase 0 with step C0 (Ben first asked for A, but A1 needs Phase 0 done first, so switched to C0).
+- **Steps worked on:** C0 — In progress (back-end slice done).
+- **What was done:**
+  - Pulled Jadon's test commit (one line in the top-level `README.md`).
+  - Created the FastAPI app with `GET /api/health` → `{"status": "ok"}` and `backend/requirements.txt` (fastapi, uvicorn, pydantic v2, bounded versions).
+  - Made a local virtual environment `backend/.venv` (gitignored) and installed the requirements.
+  - Ran the server with `uvicorn app.main:app --port 8000` from `backend/`: `/api/health` returned `{"status":"ok"}`, an unknown path returned 404.
+- **Files created / modified / deleted:**
+  - created: `backend/requirements.txt`, `backend/app/__init__.py`, `backend/app/main.py`
+  - modified: `PROGRESS.md`, `docs/AI_USE.md`
+  - deleted: none committed (a stray local `uv.log` server log in the repo's top folder was deleted with Ben's OK; it was never committed)
+- **Tests:** not run — no test suite yet (pytest not approved; see *Open questions*). Manual server check passed.
+- **Reviews:** section review by one reviewer agent — no serious findings; added version bounds to `requirements.txt` as it suggested. Its other notes (dev proxy for Angular, Python version in README, a health test) are in *Next up* / *Open questions*.
+- **Unfinished or left as-is:** C0 front end (Angular app, API service, proxy) and README run instructions — see *Next up*.
+- **Pushed:** yes
+- **Notes for the next person:** on Ben's Windows machine `python` opens the Microsoft Store; use `py -m venv .venv`, then `.venv\Scripts\python -m pip install -r requirements.txt` and `.venv\Scripts\python -m uvicorn app.main:app --port 8000` from `backend/`. Angular CLI is not installed globally — use `npx @angular/cli@latest`.
 
 ### 2026-11-11 — Ben — Claude (claude.ai) — Planning
 
