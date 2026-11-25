@@ -105,7 +105,7 @@ docs/
 | GET | `/api/log` | — | `[LogEntry]` | A |
 | GET | `/api/log/bests` | — | `[PersonalBest]` | A |
 
-Errors return `{"error": str, "detail": str | null}` with a fitting HTTP status. A guardrail refusal returns 200 with `{"refused": true, "message": str}` inside the normal response so the UI can show it.
+Errors return `{"error": str, "detail": str | null}` with a fitting HTTP status. A guardrail refusal in the profile chat returns 200 with a normal `ProfileChatResponse`: `refused` is `true` and `reply` holds the message for the UI to show. The refusal format for `/api/plan` is settled in step C3.
 
 ## 6. Schemas [contract]
 

@@ -11,13 +11,8 @@ and descriptions are explicitly stripped and never returned.
 from datetime import date, datetime, time, timedelta
 from typing import Sequence
 import icalendar
-from pydantic import BaseModel, Field
 
-
-class FreeSlot(BaseModel):
-    """A single free time window suitable for scheduling a workout."""
-    start: datetime
-    end: datetime
+from .schemas import FreeSlot
 
 
 def _to_naive_datetime(dt_val: datetime | date, default_time: time = time(0, 0)) -> datetime:
