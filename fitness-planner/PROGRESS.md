@@ -10,7 +10,7 @@ Agents: read this at `/start`, update the step status as you finish each step, a
 
 ## Next up
 
-**Workstream C, step C0 — front-end slice:** the back end (`backend/app/main.py`, `GET /api/health`) is done. Next: generate the Angular app in `fitness-planner/frontend/` with `npx @angular/cli@latest new frontend` (approved by Ben 2026-11-20), add routing, `src/app/core/api.service.ts`, a home page that shows the health status, and a dev proxy (`proxy.conf.json`) that forwards `/api` to `http://127.0.0.1:8000`. Then add run instructions to `README.md` (note: on Ben's Windows machine use `py`, not `python`). Done when both run locally and the browser shows the health status from the back end. See `docs/DESIGN.md` §3 and §9.
+**Workstream C, step C1 — live call:** create `fitness-planner/.env` (human only), fill in the key and prices, then make one approved live call through `call_model()` with a synthetic persona and check that it adds one line to `logs/usage.jsonl` with tokens, latency and cost. If OpenAI rejects the `default` values in `schemas.py`, stop and ask. Then try the A1 prompt with a synthetic persona (ask first). Do not close Phase 0 until the live call works.
 
 *(Whoever starts first should take workstream C, unless the team agrees otherwise.)*
 
@@ -20,10 +20,10 @@ Status: Not started · In progress · Done · Blocked
 
 | ID | Step | Phase | Owner | Status | Last session |
 |---|---|---|---|---|---|
-| C0 | Scaffold (FastAPI health, Angular shell, run instructions) | 0 | Ben | In progress (back end done; front end + README next) | 2026-11-20 Ben |
-| C1 | `call_model()` + usage log + dev cache | 0 | ? | Not started | — |
-| C2 | Finalize `schemas.py` + `api.types.ts` | 0 | ? | Not started | — |
-| A1 | Profile chat endpoint | 1 | ? | Not started | — |
+| C0 | Scaffold (FastAPI health, Angular shell, run instructions) | 0 | Ben | Done (health status shown in the browser) | 2026-11-24 Ben |
+| C1 | `call_model()` + usage log + dev cache | 0 | Ben | In progress (code + offline tests done; live call deferred, no API key on Ben's machine) | 2026-11-24 Ben |
+| C2 | Finalize `schemas.py` + `api.types.ts` | 0 | Ben | Done (`schemas.py` and `api.types.ts` match) | 2026-11-24 Ben |
+| A1 | Profile chat endpoint | 1 | Ben | In progress (code + offline tests; prompt not yet tried on the real model) | 2026-11-24 Ben |
 | B1 | `.ics` parser + free slots + fixtures | 1 | Jadon | Done | 2026-11-20 |
 | B2 | Plan generation endpoint | 1 | ? | Not started | — |
 | A3 | Angular profile page (minimal → full) | 1–2 | ? | Not started | — |
@@ -49,15 +49,41 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 - [ ] **C:** Per-token prices for `gpt-6-luna` (for `.env` → `PRICE_INPUT_PER_1M`, `PRICE_OUTPUT_PER_1M`).
 - [ ] **Team:** Single local user with no login for the demo (DESIGN.md §2) — confirm.
 - [x] **B:** Free-slot defaults — minimum 45 min, between 06:00 and 22:00 local time — confirmed by Jadon.
+- [ ] **A / B:** `backend/app/schemas.py` is now the shared contract for later steps; `calendar_ics.py` imports its `FreeSlot` (Ben approved 2026-11-24).
+- [ ] **B:** Possible bug from reading the code (not run): `find_free_slots` does not expand repeating events (`RRULE`), so later occurrences may look free.
+- [ ] **B / C:** Refusal format for `/api/plan`: `WeeklyPlan` has no `refused` or message field. Settle in C3.
+- [ ] **A / B:** Use `call_model(feature, messages, response_model)` from `backend/app/llm.py`; catch `LLMError`.
+- [ ] **Ben:** `call_model()` sends `store=False` so OpenAI does not keep responses (profiles can hold health data). Agent choice, not yet confirmed.
+- [ ] **C:** Strict output mode may reject the `default` values in `schemas.py`; untested until the first live call.
+- [ ] **Ben / C:** Replace `httpx` with `httpx2`? FastAPI's current test client prefers `httpx2`.
+- [x] **Ben / C:** (answered 2026-11-24: add `python-dotenv`; README run command comes with C0) Nothing loads `.env` yet. Add `python-dotenv` (new package; lets uvicorn use `--env-file`) or document a manual shell step? Blocks the live C1 call.
+- [ ] **Ben / C:** `call_model()` uses the SDK defaults: 2 transport retries and a 10-minute timeout. Set shorter limits?
+- [ ] **A / B:** `frontend/src/app/core/api.types.ts` is now the shared TypeScript contract; use it for all API types.
+- [ ] **Ben:** When the key arrives, create `.env` and make the deferred C1 live call (ask again before calling). Until then nothing has been tested against the real API.
+- [ ] **A / C:** Chat refusals use `refused: true` with the message in `reply` (DESIGN.md §5). C3 must set this; the A1 prompt always asks for `refused: false`.
+- [ ] **B / C:** `main.py` turns `LLMError` into 502, invalid requests into 422, and other HTTP errors (400 unreadable body, 404, 405) into `{error, detail}` with their own status.
+- [ ] **C5:** In `logs/usage.jsonl`, tokens and `cost_usd` can be `null`; cached calls log 0. `summarize_usage.py` must handle both.
+- [ ] **A2:** Pass the stored profile to the chat (DESIGN.md §7.1).
 - [ ] **B / C:** Wire `POST /api/calendar` endpoint once FastAPI scaffold in C0 is merged.
 - [ ] **A / team:** Do we attempt the voice-input stretch goal? Decide by the end of Phase 2.
-- [ ] **C:** Add `pytest` and `httpx` to `backend/requirements.txt` so `/api/health` (and later steps) get automated tests with FastAPI's `TestClient`? Needs approval (new dependencies).
+- [x] **C:** (both added; `httpx` approved by Ben 2026-11-24) Add `pytest` and `httpx` to `backend/requirements.txt` so `/api/health` (and later steps) get automated tests with FastAPI's `TestClient`? Needs approval (new dependencies).
 - [ ] **Team:** Does the instructor need an addendum to the proposal for the scope change (meal photos and diet tracking deferred)?
 
 ## Decisions log
 
 | Date | Decision | Decided by |
 |---|---|---|
+| 2026-11-24 | Start A1 (Phase 1) with offline tests only while C1's live call is deferred; Phase 0 is not complete | Ben |
+| 2026-11-24 | A1: chat history only until A2; Python computes `missing_fields` from 6 core fields; model failure returns 502; bad requests on all endpoints return 422 `{error, detail}` without echoing input | Ben |
+| 2026-11-24 | API key not available now; keep working on the assumption that it will be in a future session. C1's live call is deferred, not waived | Ben |
+| 2026-11-24 | C0: Angular 22 app from the official generator (routing, plain CSS, no server-side rendering, default Vitest runner); home page only; dev proxy `/api` → `127.0.0.1:8000` | Ben |
+| 2026-11-24 | `api.types.ts` mirrors `schemas.py`; dates are ISO strings; one `api.service.ts` for now, A and B may add their own | Ben |
+| 2026-11-24 | Add `python-dotenv` (`>=1,<2`, bounds chosen by agent); start the back end from `backend/` with `uvicorn --env-file ../.env` | Ben |
+| 2026-11-24 | C1: `call_model(feature, messages, response_model)`; cache in `eval/cache/` keyed on model + prompt + schema; invalid output or refusal logs `valid: false` and raises `LLMError`; blank prices log `cost_usd: null`; cached calls log cost 0 | Ben |
+| 2026-11-24 | Profile chat refusals use `ProfileChatResponse` (`refused: true`, message in `reply`); DESIGN.md §5 corrected, schemas unchanged | Ben |
+| 2026-11-24 | Path: finish Phase 0, then A1 | Ben |
+| 2026-11-24 | Schemas: `schemas.py` uses the DESIGN.md §6 draft as written; `calendar_ics.py` imports the shared `FreeSlot` | Ben |
+| 2026-11-24 | Add `openai` (`>=3,<4`) and `httpx` (`>=0.28,<1`) to `backend/requirements.txt` | Ben (packages; version bounds chosen by agent) |
 | 2026-11-20 | Free-slot defaults: minimum 45 min, between 06:00 and 22:00 local time | Jadon |
 | 2026-11-20 | `backend/` and `frontend/` live inside `fitness-planner/` | Ben |
 | 2026-11-20 | Add `uvicorn` to `backend/requirements.txt` (server that runs FastAPI); versions bounded: `fastapi>=0.115,<1`, `uvicorn>=0.30,<1`, `pydantic>=2,<3` | Ben |
