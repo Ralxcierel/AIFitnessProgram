@@ -8,6 +8,8 @@ Agents: read this at `/start`, update the step status as you finish each step, a
 
 **Phase 0 — Setup and contracts** (target Nov 13). Steps C0, C1, C2 must be done before any step that calls the model.
 
+**State on 2026-11-24:** C0 and C2 are done. C1 waits for its live call (no API key), so Phase 0 is **not** complete. Ben allowed A1 (Phase 1) to start with offline tests only.
+
 ## Next up
 
 **Workstream C, step C1 — live call:** create `fitness-planner/.env` (human only), fill in the key and prices, then make one approved live call through `call_model()` with a synthetic persona and check that it adds one line to `logs/usage.jsonl` with tokens, latency and cost. If OpenAI rejects the `default` values in `schemas.py`, stop and ask. Then try the A1 prompt with a synthetic persona (ask first). Do not close Phase 0 until the live call works.
@@ -64,6 +66,15 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 - [ ] **B / C:** `main.py` turns `LLMError` into 502, invalid requests into 422, and other HTTP errors (400 unreadable body, 404, 405) into `{error, detail}` with their own status.
 - [ ] **C5:** In `logs/usage.jsonl`, tokens and `cost_usd` can be `null`; cached calls log 0. `summarize_usage.py` must handle both.
 - [ ] **A2:** Pass the stored profile to the chat (DESIGN.md §7.1).
+- [ ] **Ben:** Phase 0 review findings not fixed yet (all low; need an OK because they touch files outside the approved lists or need a choice):
+  - `.gitignore`: ignore `.env*` except `.env.example` (today `.env.bak` or `.env.production` could be committed); widen the Claude and Gemini ignore lists to match.
+  - Dev cache (`eval/cache/`) will hold profile data: add it to the Claude and Gemini ignore lists and tell users to set `LLM_CACHE=0` with real data.
+  - `llm.py`: if `logs/usage.jsonl` cannot be written, the paid result is lost. Raise `LLMError`, or warn and return the result? (It also reaches the user as a plain-text 500.)
+  - `llm.py`: output cut off mid-JSON is reported as "did not match" instead of "incomplete".
+  - `docs/DESIGN.md`: §6 still says "Draft"; §9 and §11 do not mention the cache key with schema, or `null` tokens and cost.
+- [ ] **B:** `Session` times from the model may carry a time zone while `FreeSlot` times do not; comparing them fails. Agree before B2/B3.
+- [ ] **Ben:** Is it OK that this session ran in auto mode? `CLAUDE.md` says not to use auto-accept modes here. Asked several times, not answered.
+- [ ] **Ben:** Commits from Ben's machine show the author as "MainPC". Change the git name?
 - [ ] **B / C:** Wire `POST /api/calendar` endpoint once FastAPI scaffold in C0 is merged.
 - [ ] **A / team:** Do we attempt the voice-input stretch goal? Decide by the end of Phase 2.
 - [x] **C:** (both added; `httpx` approved by Ben 2026-11-24) Add `pytest` and `httpx` to `backend/requirements.txt` so `/api/health` (and later steps) get automated tests with FastAPI's `TestClient`? Needs approval (new dependencies).
@@ -118,6 +129,25 @@ Newest first. Copy the template for each new session.
 - **Pushed:** yes / no (reason)
 - **Notes for the next person:**
 -->
+
+### 2026-11-24 — Ben — Claude Code — Workstreams C and A
+
+- **Goal this session:** continue workstream A. A1 was blocked by Phase 0, so Ben chose "Phase 0, then A1".
+- **Steps worked on:** C0 (Done), C2 (Done), C1 (In progress: live call deferred), A1 (In progress: offline only).
+- **What was done:**
+  - C2: shared Pydantic models and the matching `api.types.ts`; `calendar_ics.py` uses the shared `FreeSlot`.
+  - C1: `call_model()` with structured output, usage log and dev cache.
+  - C0: Angular 22 shell, health page, dev proxy, README setup and run steps. Seen in a browser with the back end running and stopped.
+  - A1: `POST /api/profile/chat`; all handled errors use `{error, detail}`.
+- **Files created / modified / deleted:**
+  - created: `backend/app/schemas.py`, `backend/app/llm.py`, `backend/app/profile.py`, `backend/tests/test_schemas.py`, `backend/tests/test_llm.py`, `backend/tests/test_profile.py`, `frontend/` (Angular project)
+  - modified: `backend/app/main.py`, `backend/app/calendar_ics.py`, `backend/requirements.txt`, `docs/DESIGN.md` (§5), `README.md`, `PROGRESS.md`, `docs/AI_USE.md`
+  - deleted: none
+- **Tests:** `pytest` in `backend/`: 96 passed. `npm test -- --watch=false` in `frontend/`: 6 passed. Production build succeeded. All offline; **no OpenAI calls were made**.
+- **Reviews:** C2 three rounds, C1 two, C0 one, A1 two; bugs found were fixed except one optional C2 test idea (check optional field names). Phase 0 review: three reviewers, no high or medium defects in correctness, conformance or security; low findings are in *Open questions* and have not been fixed or re-reviewed.
+- **Unfinished or left as-is:** C1 live call; the A1 prompt is untested on the real model; starting the back end with a real `.env` and the Mac/Linux commands are untested; low review findings above.
+- **Pushed:** yes
+- **Notes for the next person:** run `pip install -r requirements.txt` in `backend/` and `npm ci` in `frontend/` first (new packages). Phases 0 and 1 are past their target dates; the video is due Dec 2.
 
 ### 2026-11-20 — Jadon — Gemini CLI — Workstream B
 
