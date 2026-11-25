@@ -4,3 +4,6 @@ pydantic>=2,<3
 icalendar>=5.0.0
 pytest>=8.0.0
 python-dateutil>=2.8.2
+openai>=3,<4
+httpx>=0.28,<1
+python-dotenv>=1,<2
