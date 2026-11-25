@@ -10,10 +10,82 @@ An LLM-powered web app that builds a profile through chat and plans a week of wo
 
 See [`PROGRESS.md`](PROGRESS.md). Design: [`docs/DESIGN.md`](docs/DESIGN.md).
 
+## Setup
+
+You need Python 3.11 or newer and Node.js 22.22.3+ or 24.15+ (even-numbered LTS versions). Run everything from this folder (`fitness-planner/`).
+
+**1. Settings.** Copy `.env.example` to `.env` and fill it in yourself. Never commit or share `.env`.
+
+**2. Back end.**
+
+Windows (PowerShell; if `python` opens the Microsoft Store, use `py` instead):
+
+```powershell
+cd backend
+python -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt
+```
+
+Mac/Linux:
+
+```bash
+cd backend
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+**3. Front end.** In a new terminal:
+
+```bash
+cd frontend
+npm ci
+```
+
+## How to run the app
+
+Use two terminals, both starting in `fitness-planner/`.
+
+**Terminal 1: back end** (Windows, then Mac/Linux). `--env-file` loads your `.env`.
+
+```powershell
+cd backend
+.venv\Scripts\python -m uvicorn app.main:app --port 8000 --env-file ../.env
+```
+
+```bash
+cd backend
+.venv/bin/python -m uvicorn app.main:app --port 8000 --env-file ../.env
+```
+
+**Terminal 2: front end.**
+
+```bash
+cd frontend
+npm start
+```
+
+Open <http://localhost:4200>. The home page should say "Back end status: ok". Press Ctrl+C in each terminal to stop.
+
+## How to run the tests
+
+None of these call the OpenAI API.
+
+Back end, from `backend/` (on Mac/Linux use `.venv/bin/python`):
+
+```powershell
+.venv\Scripts\python -m pytest
+```
+
+Front end, from `frontend/`:
+
+```bash
+npm test -- --watch=false
+```
+
 ## Sections to complete (course requirements)
 
-- [ ] Setup instructions (step C0)
-- [ ] How to run the app (step C0)
+- [x] Setup instructions (step C0)
+- [x] How to run the app (step C0)
 - [ ] How to reproduce the evaluation (step C4)
 - [ ] Models and providers used (step C5)
 - [ ] Usage and cost summary (step C5)

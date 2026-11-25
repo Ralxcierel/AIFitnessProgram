@@ -1,0 +1,6 @@
+<h1>Fitness Planner</h1>
+@if (failed()) {
+  <p role="alert">Can't connect to the back end. Is it running on port 8000?</p>
+} @else {
+  <p role="status">Back end status: {{ status() }}</p>
+}
