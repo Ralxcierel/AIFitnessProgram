@@ -1,7 +1,8 @@
-"""SQLite storage for the single local user's profile (Step A2).
+"""SQLite storage for the single local user (Steps A2 and A4).
 
-The demo has one user and no login, so the table holds at most one row: the
-whole validated UserProfile as JSON text. The database file is gitignored.
+The demo has one user and no login. The profile table holds at most one row:
+the whole validated UserProfile as JSON text. The workout log has one row per
+logged exercise. The database file is gitignored.
 """
 
 import logging
@@ -10,7 +11,7 @@ import sqlite3
 
 from pydantic import ValidationError
 
-from .schemas import UserProfile
+from .schemas import LogEntry, UserProfile
 
 log = logging.getLogger(__name__)
 
@@ -23,12 +24,28 @@ CREATE TABLE IF NOT EXISTS profile (
 )
 """
 
+_CREATE_LOG_TABLE = """
+CREATE TABLE IF NOT EXISTS log_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    exercise TEXT NOT NULL,
+    sets INTEGER NOT NULL,
+    reps INTEGER NOT NULL,
+    weight_kg REAL
+)
+"""
+
 
 def _connect() -> sqlite3.Connection:
-    """Open the database, creating its folder and table on first use."""
+    """Open the database, creating its folder and tables on first use."""
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH)
-    connection.execute(_CREATE_PROFILE_TABLE)
+    try:
+        connection.execute(_CREATE_PROFILE_TABLE)
+        connection.execute(_CREATE_LOG_TABLE)
+    except sqlite3.Error:
+        connection.close()
+        raise
     return connection
 
 
@@ -64,3 +81,59 @@ def save_profile(profile: UserProfile) -> UserProfile:
     finally:
         connection.close()
     return profile
+
+
+def add_log_entry(entry: LogEntry) -> LogEntry:
+    """Save one workout log entry and return it with its new id.
+
+    The database always assigns the id; any id on `entry` is ignored.
+    """
+    connection = _connect()
+    try:
+        with connection:
+            cursor = connection.execute(
+                "INSERT INTO log_entries (date, exercise, sets, reps, weight_kg)"
+                " VALUES (?, ?, ?, ?, ?)",
+                (
+                    entry.date.isoformat(),
+                    entry.exercise,
+                    entry.sets,
+                    entry.reps,
+                    entry.weight_kg,
+                ),
+            )
+    finally:
+        connection.close()
+    return entry.model_copy(update={"id": cursor.lastrowid})
+
+
+def list_log_entries() -> list[LogEntry]:
+    """All log entries, newest date first (newest entry first on the same day).
+
+    A row that no longer matches the schema is skipped with a warning that
+    holds no workout data.
+    """
+    connection = _connect()
+    try:
+        rows = connection.execute(
+            "SELECT id, date, exercise, sets, reps, weight_kg FROM log_entries"
+            " ORDER BY date DESC, id DESC"
+        ).fetchall()
+    finally:
+        connection.close()
+    entries = []
+    for id_, date, exercise, sets, reps, weight_kg in rows:
+        try:
+            entries.append(
+                LogEntry(
+                    id=id_,
+                    date=date,
+                    exercise=exercise,
+                    sets=sets,
+                    reps=reps,
+                    weight_kg=weight_kg,
+                )
+            )
+        except ValidationError:
+            log.warning("Skipped an unreadable workout log row (id %s)", id_)
+    return entries

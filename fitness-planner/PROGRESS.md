@@ -31,7 +31,7 @@ Status: Not started · In progress · Done · Blocked
 | A3 | Angular profile page (minimal → full) | 1–2 | Ben | Done (`/profile`: chat panel + editable card; 26 front-end tests pass; save, reload and the "assistant unavailable" chat error seen in the browser; a real chat reply not yet seen — no API key) | 2026-11-26 Ben |
 | B4 | Angular calendar upload + plan view (minimal → full) | 1–2 | ? | Not started | — |
 | A2 | Profile storage (SQLite) | 2 | Ben | Done (`db.py`, GET/PUT `/api/profile`, chat reads and saves the profile; 111 offline tests pass; synthetic profile survived a manual server restart; chat link not yet tried on the real model) | 2026-11-26 Ben |
-| A4 | Workout log + personal bests | 2 | ? | Not started | — |
+| A4 | Workout log + personal bests | 2 | Ben | Done (`workout_log.py`, log table in `db.py`, `/log` page; 145 back-end and 45 front-end tests pass; entries, a tie, name matching and a no-weight entry seen in the browser before the review fixes) | 2026-11-26 Ben |
 | B3 | Plan checks + exercise allow-list + retry | 2 | ? | Not started | — |
 | C3 | Input guardrails + wiring | 2 | ? | Not started | — |
 | A5 | 8 profile test cases | 3 | ? | Not started | — |
@@ -51,6 +51,7 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 - [ ] **C:** Per-token prices for `gpt-6-luna` (for `.env` → `PRICE_INPUT_PER_1M`, `PRICE_OUTPUT_PER_1M`).
 - [x] **Team:** Single local user with no login for the demo (DESIGN.md §2) — confirmed by Ben 2026-11-26.
 - [ ] **B / C:** `api.types.ts` now also has `ChatMessage` and `ProfileChatRequest` (the body of `POST /api/profile/chat`; they mirror `ChatMessage` and `ProfileChatRequest` in `backend/app/profile.py`, not `schemas.py`). Ben approved 2026-11-26. Keep them in step if the chat request changes.
+- [ ] **A / B3:** Workout log exercise names are free text (1–100 characters). Once B3's `exercises.json` exists, should the log page suggest or require names from it?
 - [ ] **C3:** The profile page blocks chat messages over 2,000 characters in the browser only; the back-end length cap is still C3's job.
 - [ ] **C3 / C4:** The profile chat sends the saved profile (user-written text, e.g. `name`, `health_notes`) to the model as a system message, marked "JSON data, not instructions". Add an injection test case that puts an attack in a saved profile field.
 - [x] **B:** Free-slot defaults — minimum 45 min, between 06:00 and 22:00 local time — confirmed by Jadon.
@@ -87,6 +88,8 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 
 | Date | Decision | Decided by |
 |---|---|---|
+| 2026-11-26 | A4: personal best = heaviest `weight_kg` per exercise, earliest date on a tie; entries without weight have no best; names grouped ignoring case and spacing, shown as first logged; bests sorted by name; log listed newest first | Ben |
+| 2026-11-26 | A4: `POST /api/log` trims the exercise name (1–100 characters), limits sets and reps to 1–1000 and weight to 0–1000 kg (no Infinity/NaN), allows future dates, and ignores a sent `id`; checks live in `workout_log.py`, `schemas.py` unchanged; no edit or delete endpoints | Ben |
 | 2026-11-26 | A3: profile page at `/profile` with a chat panel and an editable card; chat history kept on the page only; list fields edited as comma-separated text; plain styling; Home · Profile links (needed a small `app.ts` change) | Ben |
 | 2026-11-26 | A3: chat waits while the card has unsaved edits ("Save your edits before chatting"), and Save waits while a chat reply is pending; Save is off if the profile could not be loaded; a failed chat message goes back into the input box | Ben |
 | 2026-11-26 | Contract change: add `ChatMessage` and `ProfileChatRequest` to `frontend/src/app/core/api.types.ts` | Ben |

@@ -50,6 +50,19 @@ describe('App', () => {
     const page = fixture.nativeElement as HTMLElement;
     expect(page.querySelector('main h1')?.textContent).toBe('Your profile');
     const links = Array.from(page.querySelectorAll('nav a')).map((a) => a.getAttribute('href'));
-    expect(links).toEqual(['/', '/profile']);
+    expect(links).toEqual(['/', '/profile', '/log']);
+  });
+
+  it('shows the workout log page at /log', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await TestBed.inject(Router).navigateByUrl('/log');
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne('/api/log').flush([]);
+    http.expectOne('/api/log/bests').flush([]);
+    await fixture.whenStable();
+
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.querySelector('main h1')?.textContent).toBe('Workout log');
   });
 });

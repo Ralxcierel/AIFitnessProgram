@@ -1,0 +1,140 @@
+<h1>Workout log</h1>
+
+<div class="panels">
+  <section class="add" aria-labelledby="add-title">
+    <h2 id="add-title">Log an exercise</h2>
+    <form [formGroup]="form" (ngSubmit)="add()">
+      <label for="date">Date</label>
+      <input
+        id="date"
+        type="date"
+        formControlName="date"
+        [attr.aria-describedby]="errorId('date')"
+        [attr.aria-invalid]="showError('date')"
+      />
+      @if (showError('date')) {
+        <small id="date-error" class="error">Pick a date.</small>
+      }
+
+      <label for="exercise">Exercise</label>
+      <input
+        id="exercise"
+        formControlName="exercise"
+        autocomplete="off"
+        [attr.maxlength]="maxLength"
+        [attr.aria-describedby]="errorId('exercise')"
+        [attr.aria-invalid]="showError('exercise')"
+      />
+      @if (showError('exercise')) {
+        <small id="exercise-error" class="error">Enter a name of up to 100 characters.</small>
+      }
+
+      <label for="sets">Sets</label>
+      <input
+        id="sets"
+        type="number"
+        formControlName="sets"
+        step="1"
+        min="1"
+        max="1000"
+        [attr.aria-describedby]="errorId('sets')"
+        [attr.aria-invalid]="showError('sets')"
+      />
+      @if (showError('sets')) {
+        <small id="sets-error" class="error">A whole number from 1 to 1000.</small>
+      }
+
+      <label for="reps">Reps</label>
+      <input
+        id="reps"
+        type="number"
+        formControlName="reps"
+        step="1"
+        min="1"
+        max="1000"
+        [attr.aria-describedby]="errorId('reps')"
+        [attr.aria-invalid]="showError('reps')"
+      />
+      @if (showError('reps')) {
+        <small id="reps-error" class="error">A whole number from 1 to 1000.</small>
+      }
+
+      <label for="weight_kg">Weight (kg, optional)</label>
+      <input
+        id="weight_kg"
+        type="number"
+        formControlName="weight_kg"
+        step="0.5"
+        min="0"
+        max="1000"
+        [attr.aria-describedby]="errorId('weight_kg')"
+        [attr.aria-invalid]="showError('weight_kg')"
+      />
+      @if (showError('weight_kg')) {
+        <small id="weight_kg-error" class="error">From 0 to 1000 kg, or leave it empty.</small>
+      }
+
+      <button type="submit" [disabled]="adding()">Log it</button>
+      @if (addMessage()) {
+        <p role="status">{{ addMessage() }}</p>
+      }
+      @if (addError()) {
+        <p class="error" role="alert">{{ addError() }}</p>
+      }
+    </form>
+  </section>
+
+  <section class="results">
+    @if (loading()) {
+      <p role="status">Loading your log…</p>
+    }
+    @if (loadError()) {
+      <p class="error" role="alert">{{ loadError() }}</p>
+    }
+    @let ready = !loading() && !loadError();
+
+    <h2 id="bests-title">Personal bests</h2>
+    @if (bests().length) {
+      <table class="bests" aria-labelledby="bests-title">
+        <thead>
+          <tr><th scope="col">Exercise</th><th scope="col">Best (kg)</th><th scope="col">Date</th></tr>
+        </thead>
+        <tbody>
+          @for (best of bests(); track best.exercise) {
+            <tr><td>{{ best.exercise }}</td><td>{{ best.best_weight_kg }}</td><td>{{ best.date }}</td></tr>
+          }
+        </tbody>
+      </table>
+    } @else if (ready) {
+      <p class="empty">No personal bests yet. Log an exercise with a weight.</p>
+    }
+
+    <h2 id="entries-title">History</h2>
+    @if (entries().length) {
+      <table class="entries" aria-labelledby="entries-title">
+        <thead>
+          <tr>
+            <th scope="col">Date</th>
+            <th scope="col">Exercise</th>
+            <th scope="col">Sets</th>
+            <th scope="col">Reps</th>
+            <th scope="col">Weight (kg)</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (entry of entries(); track entry.id) {
+            <tr>
+              <td>{{ entry.date }}</td>
+              <td>{{ entry.exercise }}</td>
+              <td>{{ entry.sets }}</td>
+              <td>{{ entry.reps }}</td>
+              <td>{{ entry.weight_kg ?? '—' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    } @else if (ready) {
+      <p class="empty">Nothing logged yet.</p>
+    }
+  </section>
+</div>
