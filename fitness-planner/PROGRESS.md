@@ -30,7 +30,7 @@ Status: Not started · In progress · Done · Blocked
 | B2 | Plan generation endpoint | 1 | ? | Not started | — |
 | A3 | Angular profile page (minimal → full) | 1–2 | ? | Not started | — |
 | B4 | Angular calendar upload + plan view (minimal → full) | 1–2 | ? | Not started | — |
-| A2 | Profile storage (SQLite) | 2 | ? | Not started | — |
+| A2 | Profile storage (SQLite) | 2 | Ben | Done (`db.py`, GET/PUT `/api/profile`, chat reads and saves the profile; 111 offline tests pass; synthetic profile survived a manual server restart; chat link not yet tried on the real model) | 2026-11-26 Ben |
 | A4 | Workout log + personal bests | 2 | ? | Not started | — |
 | B3 | Plan checks + exercise allow-list + retry | 2 | ? | Not started | — |
 | C3 | Input guardrails + wiring | 2 | ? | Not started | — |
@@ -49,7 +49,8 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 - [ ] **C:** Exact name of the transcription model listed as "got-transcribe" in the notebook (only needed if we do voice input).
 - [ ] **C / team:** Does the course notebook offer a smaller text model besides `gpt-6-luna`? If yes, add a small-vs-large baseline (DESIGN.md §10).
 - [ ] **C:** Per-token prices for `gpt-6-luna` (for `.env` → `PRICE_INPUT_PER_1M`, `PRICE_OUTPUT_PER_1M`).
-- [ ] **Team:** Single local user with no login for the demo (DESIGN.md §2) — confirm.
+- [x] **Team:** Single local user with no login for the demo (DESIGN.md §2) — confirmed by Ben 2026-11-26.
+- [ ] **C3 / C4:** The profile chat sends the saved profile (user-written text, e.g. `name`, `health_notes`) to the model as a system message, marked "JSON data, not instructions". Add an injection test case that puts an attack in a saved profile field.
 - [x] **B:** Free-slot defaults — minimum 45 min, between 06:00 and 22:00 local time — confirmed by Jadon.
 - [ ] **A / B:** `backend/app/schemas.py` is now the shared contract for later steps; `calendar_ics.py` imports its `FreeSlot` (Ben approved 2026-11-24).
 - [ ] **B:** Possible bug from reading the code (not run): `find_free_slots` does not expand repeating events (`RRULE`), so later occurrences may look free.
@@ -65,7 +66,7 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 - [ ] **A / C:** Chat refusals use `refused: true` with the message in `reply` (DESIGN.md §5). C3 must set this; the A1 prompt always asks for `refused: false`.
 - [ ] **B / C:** `main.py` turns `LLMError` into 502, invalid requests into 422, and other HTTP errors (400 unreadable body, 404, 405) into `{error, detail}` with their own status.
 - [ ] **C5:** In `logs/usage.jsonl`, tokens and `cost_usd` can be `null`; cached calls log 0. `summarize_usage.py` must handle both.
-- [ ] **A2:** Pass the stored profile to the chat (DESIGN.md §7.1).
+- [x] **A2:** Pass the stored profile to the chat (DESIGN.md §7.1) — done 2026-11-26 (offline tests only).
 - [ ] **Ben:** Phase 0 review findings not fixed yet (all low; need an OK because they touch files outside the approved lists or need a choice):
   - `.gitignore`: ignore `.env*` except `.env.example` (today `.env.bak` or `.env.production` could be committed); widen the Claude and Gemini ignore lists to match.
   - Dev cache (`eval/cache/`) will hold profile data: add it to the Claude and Gemini ignore lists and tell users to set `LLM_CACHE=0` with real data.
@@ -84,6 +85,8 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 
 | Date | Decision | Decided by |
 |---|---|---|
+| 2026-11-26 | A2: one local user, no login; the profile is stored as JSON text in one SQLite row in `backend/app/db.py` (name from DESIGN.md §3); `GET /api/profile` returns an empty profile (200) when none is saved; an unreadable saved profile is treated as empty, with a warning in the server log that holds no profile data | Ben |
+| 2026-11-26 | A2: the chat sends the saved profile to the model and saves the returned profile; a refusal or failed model call saves nothing, and a refusal returns the saved profile | Ben |
 | 2026-11-24 | Start A1 (Phase 1) with offline tests only while C1's live call is deferred; Phase 0 is not complete | Ben |
 | 2026-11-24 | A1: chat history only until A2; Python computes `missing_fields` from 6 core fields; model failure returns 502; bad requests on all endpoints return 422 `{error, detail}` without echoing input | Ben |
 | 2026-11-24 | API key not available now; keep working on the assumption that it will be in a future session. C1's live call is deferred, not waived | Ben |

@@ -1,4 +1,7 @@
-"""Offline unit tests for the profile chat (Step A1). Nothing here calls the API."""
+"""Offline tests for the profile chat and storage endpoints (Steps A1, A2).
+
+Nothing here calls the API; every test uses a throwaway database.
+"""
 
 from pathlib import Path
 import sys
@@ -11,11 +14,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from backend.app import main, profile
+from backend.app import main, profile, db
 from backend.app.llm import LLMError
 from backend.app.schemas import ProfileChatResponse, UserProfile
 
 URL = "/api/profile/chat"
+PROFILE_URL = "/api/profile"
 CHAT = [
     {"role": "user", "content": "I'm Sam Sample, 180 cm"},
     {"role": "assistant", "content": "Thanks! What is your weight?"},
@@ -50,6 +54,11 @@ class FakeModel:
         return self.response
 
 
+@pytest.fixture(autouse=True)
+def temp_db(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(db, "DB_PATH", tmp_path / "data" / "app.db")
+
+
 @pytest.fixture
 def model(monkeypatch: pytest.MonkeyPatch) -> FakeModel:
     fake = FakeModel()
@@ -79,12 +88,85 @@ def test_chat_returns_valid_response_with_missing_fields(
     ]
 
 
-def test_model_gets_prompt_then_whole_chat(
+def test_model_gets_prompt_saved_profile_then_whole_chat(
     model: FakeModel, client: TestClient
 ) -> None:
+    saved = UserProfile(name="Sam Sample", workout_days=3)
+    db.save_profile(saved)
     client.post(URL, json={"messages": CHAT})
     system = {"role": "system", "content": profile.SYSTEM_PROMPT}
-    assert model.calls == [("profile", [system, *CHAT], ProfileChatResponse)]
+    stored = {"role": "system", "content": profile.saved_profile_message(saved)}
+    assert model.calls == [("profile", [system, stored, *CHAT], ProfileChatResponse)]
+    assert '"workout_days":3' in stored["content"]
+
+
+def test_chat_saves_the_returned_profile(model: FakeModel, client: TestClient) -> None:
+    client.post(URL, json={"messages": CHAT})
+    assert db.load_profile() == model.response.profile
+
+
+def test_refused_chat_keeps_and_returns_the_saved_profile(
+    model: FakeModel, client: TestClient
+) -> None:
+    saved = UserProfile(name="Sam Sample", workout_days=3)
+    db.save_profile(saved)
+    model.response = ProfileChatResponse(
+        reply="Sorry, I can't help with that.",
+        profile=UserProfile(),
+        missing_fields=[],
+        refused=True,
+    )
+    result = client.post(URL, json={"messages": CHAT})
+    assert result.status_code == 200
+    body = ProfileChatResponse.model_validate(result.json())
+    assert body.refused is True
+    assert body.reply == "Sorry, I can't help with that."
+    assert body.profile == saved
+    assert body.missing_fields == profile.missing_fields(saved)
+    assert db.load_profile() == saved
+
+
+def test_prompt_marks_the_saved_profile_as_data() -> None:
+    message = profile.saved_profile_message(UserProfile())
+    assert "not instructions" in message
+    assert "saved profile" in profile.SYSTEM_PROMPT
+
+
+def test_failed_chat_does_not_save(model: FakeModel, client: TestClient) -> None:
+    model.error = LLMError("Model output did not match ProfileChatResponse")
+    client.post(URL, json={"messages": CHAT})
+    assert db.load_profile() == UserProfile()
+
+
+def test_get_profile_is_empty_before_anything_is_saved(client: TestClient) -> None:
+    result = client.get(PROFILE_URL)
+    assert result.status_code == 200
+    assert UserProfile.model_validate(result.json()) == UserProfile()
+
+
+def test_put_profile_saves_and_get_returns_it(client: TestClient) -> None:
+    body = {"name": "Sam Sample", **FULL_CORE, "injuries": ["sore left knee"]}
+    put = client.put(PROFILE_URL, json=body)
+    assert put.status_code == 200
+    expected = UserProfile(**body)
+    assert UserProfile.model_validate(put.json()) == expected
+    got = client.get(PROFILE_URL)
+    assert UserProfile.model_validate(got.json()) == expected
+
+
+def test_put_out_of_range_value_is_rejected_and_not_saved(client: TestClient) -> None:
+    result = client.put(PROFILE_URL, json={"name": "SECRET", "workout_days": 9})
+    assert result.status_code == 422
+    assert set(result.json()) == {"error", "detail"}
+    assert "workout_days" in result.json()["detail"]
+    assert "SECRET" not in result.text
+    assert db.load_profile() == UserProfile()
+
+
+def test_profile_wrong_method_uses_the_shared_error_format(client: TestClient) -> None:
+    result = client.post(PROFILE_URL, json={})
+    assert result.status_code == 405
+    assert result.json() == {"error": "Method Not Allowed", "detail": None}
 
 
 def test_prompt_names_every_core_field() -> None:
