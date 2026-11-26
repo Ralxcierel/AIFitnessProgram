@@ -34,7 +34,7 @@ Status: Not started · In progress · Done · Blocked
 | A4 | Workout log + personal bests | 2 | Ben | Done (`workout_log.py`, log table in `db.py`, `/log` page; 145 back-end and 45 front-end tests pass; entries, a tie, name matching and a no-weight entry seen in the browser before the review fixes) | 2026-11-26 Ben |
 | B3 | Plan checks + exercise allow-list + retry | 2 | ? | Not started | — |
 | C3 | Input guardrails + wiring | 2 | ? | Not started | — |
-| A5 | 8 profile test cases | 3 | ? | Not started | — |
+| A5 | 8 profile test cases | 3 | Ben | In progress (9 cases in `eval/cases/profile.json`, format in `eval/cases/README.md`, offline file check passes; not run or scored — needs the C4 harness and an API key) | 2026-11-26 Ben |
 | B5 | 8 plan test cases + fixtures | 3 | ? | Not started | — |
 | C4 | Eval harness + safety and injection cases | 3 | ? | Not started | — |
 | C5 | Baseline run, usage summary, README sections | 3 | ? | Not started | — |
@@ -51,6 +51,9 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 - [ ] **C:** Per-token prices for `gpt-6-luna` (for `.env` → `PRICE_INPUT_PER_1M`, `PRICE_OUTPUT_PER_1M`).
 - [x] **Team:** Single local user with no login for the demo (DESIGN.md §2) — confirmed by Ben 2026-11-26.
 - [ ] **B / C:** `api.types.ts` now also has `ChatMessage` and `ProfileChatRequest` (the body of `POST /api/profile/chat`; they mirror `ChatMessage` and `ProfileChatRequest` in `backend/app/profile.py`, not `schemas.py`). Ben approved 2026-11-26. Keep them in step if the chat request changes.
+- [ ] **C4:** Build `run_eval.py` / `metrics.py` to read `eval/cases/profile.json` using the format and scoring rules in `eval/cases/README.md` (written in A5). Each case needs its own throwaway database (patch `db.DB_PATH`).
+- [ ] **B5:** Reuse the case-file layout in `eval/cases/README.md` for `plan.json`, so C4 has one format to read.
+- [ ] **Team / C5:** There are 9 profile cases, not 8 (a "vague answers" case was added), so the eval has 25 cases instead of DESIGN.md §10's 24. Update §10's table when C5 writes up the results.
 - [ ] **A / B3:** Workout log exercise names are free text (1–100 characters). Once B3's `exercises.json` exists, should the log page suggest or require names from it?
 - [ ] **C3:** The profile page blocks chat messages over 2,000 characters in the browser only; the back-end length cap is still C3's job.
 - [ ] **C3 / C4:** The profile chat sends the saved profile (user-written text, e.g. `name`, `health_notes`) to the model as a system message, marked "JSON data, not instructions". Add an injection test case that puts an attack in a saved profile field.
@@ -88,6 +91,8 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 
 | Date | Decision | Decided by |
 |---|---|---|
+| 2026-11-26 | Start A5 (Phase 3) now, before Phase 2 is complete (B3, B4, C3 still open; no API key); write the cases now, run and score them once C4 and the key exist | Ben |
+| 2026-11-26 | A5 cases: mixed matching rules (exact for experience and whole numbers; ±tolerance for cm/kg; keyword groups for text and lists; "empty" for never-given fields; exact `missing_fields`); format documented in `eval/cases/README.md`; a 9th "vague answers" case added | Ben |
 | 2026-11-26 | A4: personal best = heaviest `weight_kg` per exercise, earliest date on a tie; entries without weight have no best; names grouped ignoring case and spacing, shown as first logged; bests sorted by name; log listed newest first | Ben |
 | 2026-11-26 | A4: `POST /api/log` trims the exercise name (1–100 characters), limits sets and reps to 1–1000 and weight to 0–1000 kg (no Infinity/NaN), allows future dates, and ignores a sent `id`; checks live in `workout_log.py`, `schemas.py` unchanged; no edit or delete endpoints | Ben |
 | 2026-11-26 | A3: profile page at `/profile` with a chat panel and an editable card; chat history kept on the page only; list fields edited as comma-separated text; plain styling; Home · Profile links (needed a small `app.ts` change) | Ben |

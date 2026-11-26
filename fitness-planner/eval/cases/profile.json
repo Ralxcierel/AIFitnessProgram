@@ -1,0 +1,252 @@
+{
+  "group": "profile",
+  "step": "A5",
+  "endpoint": "POST /api/profile/chat",
+  "note": "Synthetic personas only. Format and matching rules: eval/cases/README.md.",
+  "cases": [
+    {
+      "id": "profile-01-all-in-one-metric",
+      "description": "Every core field in one message, metric units.",
+      "saved_profile": null,
+      "messages": [
+        {
+          "role": "user",
+          "content": "Hi, I'm Alex Example. I'm 172 cm and 68 kg, and I'm a beginner. I want to build strength. I can train 3 days a week for 45 minutes."
+        }
+      ],
+      "expect": {
+        "refused": false,
+        "exact": { "experience": "beginner", "workout_days": 3, "session_minutes": 45 },
+        "approx": {
+          "height_cm": { "value": 172, "tolerance": 1 },
+          "weight_kg": { "value": 68, "tolerance": 1 }
+        },
+        "contains": { "name": [["Alex"]], "goals": [["strength", "stronger"]] },
+        "empty": [
+          "split_preference",
+          "equipment",
+          "injuries",
+          "health_notes",
+          "dietary_preferences",
+          "dietary_restrictions"
+        ],
+        "missing_fields": []
+      }
+    },
+    {
+      "id": "profile-02-imperial-units",
+      "description": "Feet, inches and pounds must be converted to cm and kg.",
+      "saved_profile": null,
+      "messages": [
+        {
+          "role": "user",
+          "content": "I'm 5 ft 10 in and weigh 170 lb. I've been training for a couple of years, so call me intermediate. My goal is to improve my endurance. 4 days a week, 60 minutes a session."
+        }
+      ],
+      "expect": {
+        "refused": false,
+        "exact": { "experience": "intermediate", "workout_days": 4, "session_minutes": 60 },
+        "approx": {
+          "height_cm": { "value": 177.8, "tolerance": 1 },
+          "weight_kg": { "value": 77.1, "tolerance": 1 }
+        },
+        "contains": { "goals": [["endurance"]] },
+        "empty": ["name", "injuries", "health_notes", "dietary_restrictions"],
+        "missing_fields": []
+      }
+    },
+    {
+      "id": "profile-03-spread-over-turns",
+      "description": "The details come out over several turns of the chat.",
+      "saved_profile": null,
+      "messages": [
+        { "role": "user", "content": "Hey, I'd like to get fitter." },
+        {
+          "role": "assistant",
+          "content": "Great goal! How tall are you, and how much do you weigh?"
+        },
+        { "role": "user", "content": "165 cm and 59 kg." },
+        {
+          "role": "assistant",
+          "content": "Thanks! How much training experience do you have?"
+        },
+        {
+          "role": "user",
+          "content": "Quite advanced, I've lifted for years. I can do 5 days a week, 90 minutes each time."
+        }
+      ],
+      "expect": {
+        "refused": false,
+        "exact": { "experience": "advanced", "workout_days": 5, "session_minutes": 90 },
+        "approx": {
+          "height_cm": { "value": 165, "tolerance": 1 },
+          "weight_kg": { "value": 59, "tolerance": 1 }
+        },
+        "contains": { "goals": [["fit"]] },
+        "empty": ["name", "injuries", "health_notes", "dietary_restrictions"],
+        "missing_fields": []
+      }
+    },
+    {
+      "id": "profile-04-correction",
+      "description": "The user corrects their weight; the newest value must win.",
+      "saved_profile": null,
+      "messages": [
+        {
+          "role": "user",
+          "content": "I'm 180 cm and 85 kg, a beginner, and I want to get stronger. 3 days a week, 30 minutes."
+        },
+        {
+          "role": "assistant",
+          "content": "Got it! Your profile looks complete. Does everything look right?"
+        },
+        { "role": "user", "content": "Oops, I meant 82 kg, not 85." }
+      ],
+      "expect": {
+        "refused": false,
+        "exact": { "experience": "beginner", "workout_days": 3, "session_minutes": 30 },
+        "approx": {
+          "height_cm": { "value": 180, "tolerance": 1 },
+          "weight_kg": { "value": 82, "tolerance": 0.5 }
+        },
+        "contains": { "goals": [["strength", "stronger"]] },
+        "empty": ["name", "injuries", "health_notes"],
+        "missing_fields": []
+      }
+    },
+    {
+      "id": "profile-05-partial-info",
+      "description": "Only experience and a goal are given; nothing else may be guessed.",
+      "saved_profile": null,
+      "messages": [
+        {
+          "role": "user",
+          "content": "I'm a total beginner and I want to improve my flexibility."
+        }
+      ],
+      "expect": {
+        "refused": false,
+        "exact": { "experience": "beginner" },
+        "approx": {},
+        "contains": { "goals": [["flexib"]] },
+        "empty": [
+          "name",
+          "height_cm",
+          "weight_kg",
+          "workout_days",
+          "session_minutes",
+          "equipment",
+          "injuries",
+          "health_notes",
+          "dietary_preferences",
+          "dietary_restrictions"
+        ],
+        "missing_fields": ["height_cm", "weight_kg", "workout_days", "session_minutes"]
+      }
+    },
+    {
+      "id": "profile-06-out-of-range-days",
+      "description": "7 days a week is above the 1-6 limit, so workout_days must stay empty.",
+      "saved_profile": null,
+      "messages": [
+        {
+          "role": "user",
+          "content": "I'm 175 cm, 70 kg, intermediate, and I want to build muscle. I want to train 7 days a week for 60 minutes."
+        }
+      ],
+      "expect": {
+        "refused": false,
+        "exact": { "experience": "intermediate", "session_minutes": 60 },
+        "approx": {
+          "height_cm": { "value": 175, "tolerance": 1 },
+          "weight_kg": { "value": 70, "tolerance": 1 }
+        },
+        "contains": { "goals": [["muscle"]] },
+        "empty": ["workout_days", "name", "injuries"],
+        "missing_fields": ["workout_days"]
+      }
+    },
+    {
+      "id": "profile-07-health-and-diet",
+      "description": "An injury, a diet preference and an allergy go into their own fields.",
+      "saved_profile": null,
+      "messages": [
+        {
+          "role": "user",
+          "content": "I'm Riley Placeholder, 168 cm and 62 kg, a beginner. I'm after general fitness, 3 days a week, 40 minutes each. I have a sore left knee. I'm vegetarian and I'm allergic to peanuts."
+        }
+      ],
+      "expect": {
+        "refused": false,
+        "exact": { "experience": "beginner", "workout_days": 3, "session_minutes": 40 },
+        "approx": {
+          "height_cm": { "value": 168, "tolerance": 1 },
+          "weight_kg": { "value": 62, "tolerance": 1 }
+        },
+        "contains": {
+          "name": [["Riley"]],
+          "goals": [["fit"]],
+          "injuries": [["knee"]],
+          "dietary_preferences": [["vegetarian"]],
+          "dietary_restrictions": [["peanut"]]
+        },
+        "empty": ["split_preference", "equipment"],
+        "missing_fields": []
+      }
+    },
+    {
+      "id": "profile-08-saved-profile-update",
+      "description": "A saved profile exists; the user changes only the session length.",
+      "saved_profile": {
+        "name": "Jordan Test",
+        "height_cm": 183,
+        "weight_kg": 90,
+        "experience": "intermediate",
+        "goals": ["build strength"],
+        "workout_days": 4,
+        "session_minutes": 60,
+        "equipment": ["dumbbells"]
+      },
+      "messages": [
+        { "role": "user", "content": "Can we change my sessions to 45 minutes?" }
+      ],
+      "expect": {
+        "refused": false,
+        "exact": { "experience": "intermediate", "workout_days": 4, "session_minutes": 45 },
+        "approx": {
+          "height_cm": { "value": 183, "tolerance": 1 },
+          "weight_kg": { "value": 90, "tolerance": 1 }
+        },
+        "contains": {
+          "name": [["Jordan"]],
+          "goals": [["strength"]],
+          "equipment": [["dumbbell"]]
+        },
+        "empty": ["injuries", "health_notes", "dietary_restrictions"],
+        "missing_fields": []
+      }
+    },
+    {
+      "id": "profile-09-vague-answers",
+      "description": "Vague answers about days and session length must not be turned into guessed numbers.",
+      "saved_profile": null,
+      "messages": [
+        {
+          "role": "user",
+          "content": "I'm 170 cm and 65 kg, a beginner, and I want to get stronger. I can train a few days a week, but not for too long each time."
+        }
+      ],
+      "expect": {
+        "refused": false,
+        "exact": { "experience": "beginner" },
+        "approx": {
+          "height_cm": { "value": 170, "tolerance": 1 },
+          "weight_kg": { "value": 65, "tolerance": 1 }
+        },
+        "contains": { "goals": [["strength", "stronger"]] },
+        "empty": ["workout_days", "session_minutes", "name", "injuries"],
+        "missing_fields": ["workout_days", "session_minutes"]
+      }
+    }
+  ]
+}
