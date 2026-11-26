@@ -8,13 +8,15 @@ Agents: read this at `/start`, update the step status as you finish each step, a
 
 **Phase 0 — Setup and contracts** (target Nov 13). Steps C0, C1, C2 must be done before any step that calls the model.
 
-**State on 2026-11-24:** C0 and C2 are done. C1 waits for its live call (no API key), so Phase 0 is **not** complete. Ben allowed A1 (Phase 1) to start with offline tests only.
+**State on 2026-11-26:** C0 and C2 are done. C1 still waits for its live call (no API key), so Phase 0 is **not** formally complete. With Ben's OK, work went ahead offline: A2, A3, A4 done; C3 built (B must wire two checks); A5 cases written (Phase 3, not run). Nothing has been tested against the real model yet. B2, B3, B4, C4, C5 not started. The demo video is due **Dec 2**.
 
 ## Next up
 
-**Workstream C, step C1 — live call:** create `fitness-planner/.env` (human only), fill in the key and prices, then make one approved live call through `call_model()` with a synthetic persona and check that it adds one line to `logs/usage.jsonl` with tokens, latency and cost. If OpenAI rejects the `default` values in `schemas.py`, stop and ask. Then try the A1 prompt with a synthetic persona (ask first). Do not close Phase 0 until the live call works.
+**If the API key is available — Workstream C, step C1 live call:** create `fitness-planner/.env` (human only), fill in the key and prices, then make one approved live call through `call_model()` with a synthetic persona and check that it adds one line to `logs/usage.jsonl` with tokens, latency and cost. If OpenAI rejects the `default` values in `schemas.py`, stop and ask. Then try the A1 profile chat in the browser at `/profile` with a synthetic persona (ask first; about 3–5 calls).
 
-*(Whoever starts first should take workstream C, unless the team agrees otherwise.)*
+**If there is still no key — Workstream B, step B2 or C4 offline:** B2 (plan endpoint) can be built with a fake `call_model` in tests, like `backend/tests/test_profile.py` does, and should wire in `guardrails.ics_is_too_large()`, `guardrails.health_flags()` and the 400 refusal format (DESIGN.md §5). C4 (eval harness) can be built to read `eval/cases/profile.json` using `eval/cases/README.md`, tested with a fake model. B is furthest behind, so B2 first if a B person is available.
+
+*(Setup on a new machine: `pip install -r requirements.txt` in `backend/.venv` and `npm ci` in `frontend/`.)*
 
 ## Status board
 
@@ -152,6 +154,26 @@ Newest first. Copy the template for each new session.
 - **Pushed:** yes / no (reason)
 - **Notes for the next person:**
 -->
+
+### 2026-11-26 — Ben — Claude Code — Workstreams A and C
+
+- **Goal this session:** continue workstream A; then, with Ben's OK, start A5 early and switch to C3.
+- **Steps worked on:** A2 (Done), A3 (Done), A4 (Done), A5 (In progress: cases written, not run), C3 (In progress: built and wired into the profile chat; B must wire the `.ics` and health checks).
+- **What was done:**
+  - A2: SQLite profile storage in `db.py`; `GET`/`PUT /api/profile`; the chat reads and saves the profile.
+  - A3: `/profile` page with a chat panel and an editable profile card; nav links.
+  - A4: workout log and personal bests (`workout_log.py`) and the `/log` page.
+  - A5: 9 synthetic profile eval cases, a case-format README for C4/B5, and an offline file check.
+  - C3: `guardrails.py` (length limits, injection screen, `.ics` size check, health red flags), wired into the profile chat; `/api/plan` refusal format added to DESIGN.md §5.
+- **Files created / modified / deleted:**
+  - created: `backend/app/db.py`, `backend/app/workout_log.py`, `backend/app/guardrails.py`, `backend/tests/test_storage.py`, `backend/tests/test_workout_log.py`, `backend/tests/test_eval_cases.py`, `backend/tests/test_guardrails.py`, `frontend/src/app/profile/` (6 files), `frontend/src/app/log/` (6 files), `eval/cases/profile.json`, `eval/cases/README.md`
+  - modified: `backend/app/profile.py`, `backend/app/main.py`, `backend/tests/test_profile.py`, `frontend/src/app/app.html`, `app.ts`, `app.routes.ts`, `app.spec.ts`, `frontend/src/app/core/api.types.ts` (contract: `ChatMessage`, `ProfileChatRequest`), `docs/DESIGN.md` (§5), `PROGRESS.md`, `docs/AI_USE.md`
+  - deleted: none committed (test databases and build output made during checks were removed)
+- **Tests:** `pytest` in `backend/`: 329 passed. `npm test -- --watch=false` in `frontend/`: 48 passed. Production build succeeded. All offline; **no OpenAI calls were made**. A2, A3, A4 checked by hand in the browser with synthetic data.
+- **Reviews:** one section reviewer each for A2, A3, A4, A5; C3 had a review and a re-review (two high findings, both fixed). Fixes were made with Ben's approval. The last C3 regex fixes were self-checked with tests only (Ben's choice).
+- **Unfinished or left as-is:** A1 prompt and C1 live call still untested (no key); A5 cases not run (needs C4 and key); C3 checks for B not yet wired; saved-profile text from `PUT /api/profile` is not screened; a small `errorText()` helper is repeated in the profile and log pages.
+- **Pushed:** yes (A2, A3, A4, A5 pushed during the session; C3 and wrap-up pushed at the end)
+- **Notes for the next person:** `pip install -r requirements.txt` and `npm ci` were needed on this machine. This session again ran in auto mode while each step was still approved by Ben in chat (see the open question about auto mode). Commits now show the git name "Anozin".
 
 ### 2026-11-24 — Ben — Claude Code — Workstreams C and A
 
