@@ -1,7 +1,8 @@
-"""Profile chat and profile storage endpoints (Steps A1 and A2).
+"""Profile chat and profile storage endpoints (Steps A1, A2; guardrails C3).
 
 Each chat turn sends the saved profile plus the whole chat to the model, then
-saves the profile it returns. Step C3 adds the input guardrails.
+saves the profile it returns. The input guardrails run first: length limits in
+the request model, and an injection screen that refuses without a model call.
 """
 
 from typing import Literal
@@ -9,7 +10,7 @@ from typing import Literal
 from fastapi import APIRouter
 from pydantic import BaseModel, Field, model_validator
 
-from . import db
+from . import db, guardrails
 from .llm import Message, call_model
 from .schemas import ProfileChatResponse, UserProfile
 
@@ -54,13 +55,15 @@ class ChatMessage(BaseModel):
     """One message in the profile chat."""
 
     role: Literal["user", "assistant"]
-    content: str = Field(min_length=1)
+    content: str = Field(min_length=1, max_length=guardrails.MAX_MESSAGE_CHARS)
 
 
 class ProfileChatRequest(BaseModel):
     """The whole chat so far, ending with the user's newest message."""
 
-    messages: list[ChatMessage] = Field(min_length=1)
+    messages: list[ChatMessage] = Field(
+        min_length=1, max_length=guardrails.MAX_CHAT_MESSAGES
+    )
 
     @model_validator(mode="after")
     def _ends_with_user(self) -> "ProfileChatRequest":
@@ -77,8 +80,17 @@ def profile_chat(request: ProfileChatRequest) -> ProfileChatResponse:
     """Reply to the user, save the profile so far, and return it.
 
     A refusal keeps the saved profile unchanged and returns it with the reply.
+    A chat flagged by the injection screen is refused without a model call.
     """
     saved = db.load_profile()
+    chat = [(message.role, message.content) for message in request.messages]
+    if guardrails.chat_is_flagged(chat):
+        return ProfileChatResponse(
+            reply=guardrails.PROFILE_REFUSAL,
+            profile=saved,
+            missing_fields=missing_fields(saved),
+            refused=True,
+        )
     messages: list[Message] = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "system", "content": saved_profile_message(saved)},
@@ -90,7 +102,14 @@ def profile_chat(request: ProfileChatRequest) -> ProfileChatResponse:
         current = saved
     else:
         current = db.save_profile(response.profile)
-    update = {"profile": current, "missing_fields": missing_fields(current)}
+    # The browser sends replies back next turn; an over-long one would make
+    # every later request fail the length limit, so cut it here.
+    reply = response.reply[: guardrails.MAX_MESSAGE_CHARS]
+    update = {
+        "reply": reply,
+        "profile": current,
+        "missing_fields": missing_fields(current),
+    }
     return response.model_copy(update=update)
 
 

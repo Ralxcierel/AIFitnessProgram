@@ -31,8 +31,26 @@ const FIELD_LABELS: Record<(typeof CORE_FIELDS)[number], string> = {
   session_minutes: 'session length',
 };
 
-/** Same limit as the back-end guardrail in DESIGN.md section 8. */
+/** Same limits as backend/app/guardrails.py (DESIGN.md section 8). */
 export const MAX_MESSAGE_LENGTH = 2000;
+export const MAX_CHAT_MESSAGES = 40;
+
+/** A chat message as shown on the page; refused ones are not sent again. */
+interface ShownMessage extends ChatMessage {
+  refused: boolean;
+}
+
+/**
+ * The chat to send: refused exchanges left out, and only the newest
+ * MAX_CHAT_MESSAGES kept. Earlier details are already in the saved profile,
+ * which the back end sends to the model as well.
+ */
+function historyToSend(shown: ShownMessage[]): ChatMessage[] {
+  return shown
+    .filter((message) => !message.refused)
+    .slice(-MAX_CHAT_MESSAGES)
+    .map(({ role, content }) => ({ role, content }));
+}
 
 /** Empty, or a number strictly between min and max (Pydantic gt / lt). */
 function between(min: number, max: number): ValidatorFn {
@@ -152,7 +170,8 @@ export class ProfilePage {
   protected readonly maxLength = MAX_MESSAGE_LENGTH;
 
   // Chat panel. The history lives only on this page; the profile is saved.
-  protected readonly messages = signal<ChatMessage[]>([]);
+  // Refused exchanges stay on screen but are not sent again (Step C3).
+  protected readonly messages = signal<ShownMessage[]>([]);
   protected readonly sending = signal(false);
   protected readonly chatNotice = signal('');
   protected readonly chatError = signal('');
@@ -228,17 +247,22 @@ export class ProfilePage {
       return;
     }
     const before = this.messages();
-    const history: ChatMessage[] = [...before, { role: 'user', content }];
-    this.messages.set(history);
+    const question: ShownMessage = { role: 'user', content, refused: false };
+    this.messages.set([...before, question]);
     this.chatForm.reset();
     this.sending.set(true);
     this.profiles
-      .chat(history)
+      .chat(historyToSend([...before, question]))
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (response) => {
-          this.messages.set([...history, { role: 'assistant', content: response.reply }]);
-          if (response.refused) {
+          const refused = response.refused;
+          this.messages.set([
+            ...before,
+            { ...question, refused },
+            { role: 'assistant', content: response.reply, refused },
+          ]);
+          if (refused) {
             this.chatNotice.set("The assistant couldn't help with that message.");
           }
           this.showProfile(response.profile);

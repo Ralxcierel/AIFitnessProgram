@@ -33,7 +33,7 @@ Status: Not started · In progress · Done · Blocked
 | A2 | Profile storage (SQLite) | 2 | Ben | Done (`db.py`, GET/PUT `/api/profile`, chat reads and saves the profile; 111 offline tests pass; synthetic profile survived a manual server restart; chat link not yet tried on the real model) | 2026-11-26 Ben |
 | A4 | Workout log + personal bests | 2 | Ben | Done (`workout_log.py`, log table in `db.py`, `/log` page; 145 back-end and 45 front-end tests pass; entries, a tie, name matching and a no-weight entry seen in the browser before the review fixes) | 2026-11-26 Ben |
 | B3 | Plan checks + exercise allow-list + retry | 2 | ? | Not started | — |
-| C3 | Input guardrails + wiring | 2 | ? | Not started | — |
+| C3 | Input guardrails + wiring | 2 | Ben | In progress (`guardrails.py` done and wired into the profile chat; 329 back-end and 48 front-end tests pass; B must still wire the `.ics` size check and health flags into its endpoints) | 2026-11-26 Ben |
 | A5 | 8 profile test cases | 3 | Ben | In progress (9 cases in `eval/cases/profile.json`, format in `eval/cases/README.md`, offline file check passes; not run or scored — needs the C4 harness and an API key) | 2026-11-26 Ben |
 | B5 | 8 plan test cases + fixtures | 3 | ? | Not started | — |
 | C4 | Eval harness + safety and injection cases | 3 | ? | Not started | — |
@@ -55,12 +55,14 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 - [ ] **B5:** Reuse the case-file layout in `eval/cases/README.md` for `plan.json`, so C4 has one format to read.
 - [ ] **Team / C5:** There are 9 profile cases, not 8 (a "vague answers" case was added), so the eval has 25 cases instead of DESIGN.md §10's 24. Update §10's table when C5 writes up the results.
 - [ ] **A / B3:** Workout log exercise names are free text (1–100 characters). Once B3's `exercises.json` exists, should the log page suggest or require names from it?
-- [ ] **C3:** The profile page blocks chat messages over 2,000 characters in the browser only; the back-end length cap is still C3's job.
+- [x] **C3:** The profile page blocks chat messages over 2,000 characters in the browser only — the back end now enforces it too (C3, 2026-11-26).
 - [ ] **C3 / C4:** The profile chat sends the saved profile (user-written text, e.g. `name`, `health_notes`) to the model as a system message, marked "JSON data, not instructions". Add an injection test case that puts an attack in a saved profile field.
 - [x] **B:** Free-slot defaults — minimum 45 min, between 06:00 and 22:00 local time — confirmed by Jadon.
 - [ ] **A / B:** `backend/app/schemas.py` is now the shared contract for later steps; `calendar_ics.py` imports its `FreeSlot` (Ben approved 2026-11-24).
 - [ ] **B:** Possible bug from reading the code (not run): `find_free_slots` does not expand repeating events (`RRULE`), so later occurrences may look free.
-- [ ] **B / C:** Refusal format for `/api/plan`: `WeeklyPlan` has no `refused` or message field. Settle in C3.
+- [x] **B / C:** Refusal format for `/api/plan` — settled in C3 (2026-11-26): HTTP 400 `{"error": "Request refused", "detail": <message>}`, see DESIGN.md §5.
+- [ ] **B (B2 / B4):** Use `guardrails.ics_is_too_large()` in `POST /api/calendar` (200 KB), `guardrails.health_flags()` on the profile's injuries and health notes to add a "check with a doctor or physical therapist" note in the plan, and the 400 refusal format above. C3 stays In progress until this is wired.
+- [ ] **C3 / C4:** The injection screen is a pattern list (no model call). Its known limits are listed in `backend/tests/test_guardrails.py` (ATTACKS / BENIGN). The final round of regex fixes was self-checked with tests only, not by a separate reviewer. Saved-profile text sent with `PUT /api/profile` is not screened.
 - [ ] **A / B:** Use `call_model(feature, messages, response_model)` from `backend/app/llm.py`; catch `LLMError`.
 - [ ] **Ben:** `call_model()` sends `store=False` so OpenAI does not keep responses (profiles can hold health data). Agent choice, not yet confirmed.
 - [ ] **C:** Strict output mode may reject the `default` values in `schemas.py`; untested until the first live call.
@@ -91,6 +93,11 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 
 | Date | Decision | Decided by |
 |---|---|---|
+| 2026-11-26 | Switch from workstream A to C for step C3 this session | Ben |
+| 2026-11-26 | C3: pattern-list injection screen only (no classification model call); user messages get the full check, assistant messages only chat control tokens; flagged chat → 200 refusal with the saved profile, no model call; limits 2,000 characters per message and 40 messages per chat → 422; model replies cut to 2,000 characters; the profile page stops sending refused exchanges and sends at most the newest 40 messages | Ben |
+| 2026-11-26 | C3: `.ics` size check (200 KB) and health red-flag finder built for B to wire in later | Ben |
+| 2026-11-26 | Contract change (DESIGN.md §5): a refused `/api/plan` request returns 400 `{"error": "Request refused", "detail": message}` | Ben |
+| 2026-11-26 | C3: after two reviews, the last regex fixes are self-checked with tests, no third reviewer | Ben |
 | 2026-11-26 | Start A5 (Phase 3) now, before Phase 2 is complete (B3, B4, C3 still open; no API key); write the cases now, run and score them once C4 and the key exist | Ben |
 | 2026-11-26 | A5 cases: mixed matching rules (exact for experience and whole numbers; ±tolerance for cm/kg; keyword groups for text and lists; "empty" for never-given fields; exact `missing_fields`); format documented in `eval/cases/README.md`; a 9th "vague answers" case added | Ben |
 | 2026-11-26 | A4: personal best = heaviest `weight_kg` per exercise, earliest date on a tie; entries without weight have no best; names grouped ignoring case and spacing, shown as first logged; bests sorted by name; log listed newest first | Ben |
