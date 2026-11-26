@@ -84,7 +84,8 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
   - `llm.py`: output cut off mid-JSON is reported as "did not match" instead of "incomplete".
   - `docs/DESIGN.md`: §6 still says "Draft"; §9 and §11 do not mention the cache key with schema, or `null` tokens and cost.
 - [ ] **B:** `Session` times from the model may carry a time zone while `FreeSlot` times do not; comparing them fails. Agree before B2/B3.
-- [ ] **Ben:** Is it OK that this session ran in auto mode? `CLAUDE.md` says not to use auto-accept modes here. Asked several times, not answered.
+- [x] **Ben:** Is it OK that this session ran in auto mode? — answered 2026-11-26: new per-person rule in `CLAUDE.md` / `GEMINI.md`; Ben approved auto mode for himself.
+- [ ] **Jadon, Ethan:** If your agent runs in an auto / YOLO mode, it will now ask you once whether that is OK (`CLAUDE.md` / `GEMINI.md`). Your answer is recorded under your name in the Decisions log.
 - [ ] **Ben:** Commits from Ben's machine show the author as "MainPC". Change the git name?
 - [ ] **B / C:** Wire `POST /api/calendar` endpoint once FastAPI scaffold in C0 is merged.
 - [ ] **A / team:** Do we attempt the voice-input stretch goal? Decide by the end of Phase 2.
@@ -95,6 +96,8 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 
 | Date | Decision | Decided by |
 |---|---|---|
+| 2026-11-26 | Rule change (`CLAUDE.md`, `GEMINI.md`, `HOW_TO_START.md`): auto / auto-accept / YOLO modes are allowed per person once that person approves it when asked at `/start`; recorded here by name; AGENTS.md approvals in chat still apply | Ben |
+| 2026-11-26 | Auto mode approved for Ben's own sessions | Ben |
 | 2026-11-26 | Switch from workstream A to C for step C3 this session | Ben |
 | 2026-11-26 | C3: pattern-list injection screen only (no classification model call); user messages get the full check, assistant messages only chat control tokens; flagged chat → 200 refusal with the saved profile, no model call; limits 2,000 characters per message and 40 messages per chat → 422; model replies cut to 2,000 characters; the profile page stops sending refused exchanges and sends at most the newest 40 messages | Ben |
 | 2026-11-26 | C3: `.ics` size check (200 KB) and health red-flag finder built for B to wire in later | Ben |

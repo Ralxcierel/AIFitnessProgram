@@ -51,7 +51,7 @@ You can answer:
 
 - You're in charge. If something seems off, say so. The agent is told to ask rather than guess.
 - If you don't understand something, ask: "explain that like I'm new to this."
-- Don't turn on auto-accept modes (Claude Code's auto-accept edits, Gemini's YOLO mode). Every change should go past you.
+- Auto-accept modes (Claude Code's auto or auto-accept modes, Gemini's YOLO mode) are your choice. If one is on, the agent asks you once whether that is OK; your answer is recorded for you only, not for teammates. Even then, the agent still asks you in chat before every change, commit, push, and API call.
 - If git shows a scary message, don't try to fix it yourself. Ask the agent to explain, or message the team.
 - Using Gemini in a web browser instead of the CLI? See `docs/WEB_CHAT_HANDOFF.md`.
 
