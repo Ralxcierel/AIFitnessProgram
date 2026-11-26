@@ -28,7 +28,7 @@ Status: Not started · In progress · Done · Blocked
 | A1 | Profile chat endpoint | 1 | Ben | In progress (code + offline tests; prompt not yet tried on the real model) | 2026-11-24 Ben |
 | B1 | `.ics` parser + free slots + fixtures | 1 | Jadon | Done | 2026-11-20 |
 | B2 | Plan generation endpoint | 1 | ? | Not started | — |
-| A3 | Angular profile page (minimal → full) | 1–2 | ? | Not started | — |
+| A3 | Angular profile page (minimal → full) | 1–2 | Ben | Done (`/profile`: chat panel + editable card; 26 front-end tests pass; save, reload and the "assistant unavailable" chat error seen in the browser; a real chat reply not yet seen — no API key) | 2026-11-26 Ben |
 | B4 | Angular calendar upload + plan view (minimal → full) | 1–2 | ? | Not started | — |
 | A2 | Profile storage (SQLite) | 2 | Ben | Done (`db.py`, GET/PUT `/api/profile`, chat reads and saves the profile; 111 offline tests pass; synthetic profile survived a manual server restart; chat link not yet tried on the real model) | 2026-11-26 Ben |
 | A4 | Workout log + personal bests | 2 | ? | Not started | — |
@@ -50,6 +50,8 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 - [ ] **C / team:** Does the course notebook offer a smaller text model besides `gpt-6-luna`? If yes, add a small-vs-large baseline (DESIGN.md §10).
 - [ ] **C:** Per-token prices for `gpt-6-luna` (for `.env` → `PRICE_INPUT_PER_1M`, `PRICE_OUTPUT_PER_1M`).
 - [x] **Team:** Single local user with no login for the demo (DESIGN.md §2) — confirmed by Ben 2026-11-26.
+- [ ] **B / C:** `api.types.ts` now also has `ChatMessage` and `ProfileChatRequest` (the body of `POST /api/profile/chat`; they mirror `ChatMessage` and `ProfileChatRequest` in `backend/app/profile.py`, not `schemas.py`). Ben approved 2026-11-26. Keep them in step if the chat request changes.
+- [ ] **C3:** The profile page blocks chat messages over 2,000 characters in the browser only; the back-end length cap is still C3's job.
 - [ ] **C3 / C4:** The profile chat sends the saved profile (user-written text, e.g. `name`, `health_notes`) to the model as a system message, marked "JSON data, not instructions". Add an injection test case that puts an attack in a saved profile field.
 - [x] **B:** Free-slot defaults — minimum 45 min, between 06:00 and 22:00 local time — confirmed by Jadon.
 - [ ] **A / B:** `backend/app/schemas.py` is now the shared contract for later steps; `calendar_ics.py` imports its `FreeSlot` (Ben approved 2026-11-24).
@@ -85,6 +87,9 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 
 | Date | Decision | Decided by |
 |---|---|---|
+| 2026-11-26 | A3: profile page at `/profile` with a chat panel and an editable card; chat history kept on the page only; list fields edited as comma-separated text; plain styling; Home · Profile links (needed a small `app.ts` change) | Ben |
+| 2026-11-26 | A3: chat waits while the card has unsaved edits ("Save your edits before chatting"), and Save waits while a chat reply is pending; Save is off if the profile could not be loaded; a failed chat message goes back into the input box | Ben |
+| 2026-11-26 | Contract change: add `ChatMessage` and `ProfileChatRequest` to `frontend/src/app/core/api.types.ts` | Ben |
 | 2026-11-26 | A2: one local user, no login; the profile is stored as JSON text in one SQLite row in `backend/app/db.py` (name from DESIGN.md §3); `GET /api/profile` returns an empty profile (200) when none is saved; an unreadable saved profile is treated as empty, with a warning in the server log that holds no profile data | Ben |
 | 2026-11-26 | A2: the chat sends the saved profile to the model and saves the returned profile; a refusal or failed model call saves nothing, and a refusal returns the saved profile | Ben |
 | 2026-11-24 | Start A1 (Phase 1) with offline tests only while C1's live call is deferred; Phase 0 is not complete | Ben |

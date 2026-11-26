@@ -25,4 +25,31 @@ describe('App', () => {
       expect(page.querySelector('main h1')?.textContent).toBe('Fitness Planner');
     });
   }
+
+  it('shows the profile page at /profile, with links to both pages', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await TestBed.inject(Router).navigateByUrl('/profile');
+    TestBed.inject(HttpTestingController).expectOne('/api/profile').flush({
+      name: null,
+      height_cm: null,
+      weight_kg: null,
+      experience: null,
+      goals: [],
+      workout_days: null,
+      session_minutes: null,
+      split_preference: null,
+      equipment: [],
+      injuries: [],
+      health_notes: null,
+      dietary_preferences: [],
+      dietary_restrictions: [],
+    });
+    await fixture.whenStable();
+
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.querySelector('main h1')?.textContent).toBe('Your profile');
+    const links = Array.from(page.querySelectorAll('nav a')).map((a) => a.getAttribute('href'));
+    expect(links).toEqual(['/', '/profile']);
+  });
 });

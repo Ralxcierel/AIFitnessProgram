@@ -1,0 +1,61 @@
+.panels {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  align-items: start;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+label {
+  margin-top: 0.5rem;
+  font-weight: 600;
+}
+
+button {
+  margin-top: 1rem;
+  align-self: flex-start;
+}
+
+.messages {
+  list-style: none;
+  padding: 0;
+  max-height: 24rem;
+  overflow-y: auto;
+}
+
+.messages li {
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.messages .user {
+  background: #eef3ff;
+}
+
+.messages .assistant {
+  background: #f3f3f3;
+}
+
+.messages .empty,
+.messages .pending,
+.hint {
+  color: #555;
+}
+
+.error {
+  color: #b00020;
+}
+
+.notice {
+  color: #7a4b00;
+}
+
+.missing.done {
+  color: #1b6e2a;
+}

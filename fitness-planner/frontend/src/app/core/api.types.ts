@@ -31,6 +31,17 @@ export interface UserProfile {
   dietary_restrictions: string[];
 }
 
+/** One message in the profile chat; mirrors ChatMessage in backend/app/profile.py. */
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+/** Body of POST /api/profile/chat; the last message must be from the user. */
+export interface ProfileChatRequest {
+  messages: ChatMessage[];
+}
+
 export interface ProfileChatResponse {
   reply: string;
   profile: UserProfile;

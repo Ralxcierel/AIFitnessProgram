@@ -1,0 +1,157 @@
+<h1>Your profile</h1>
+
+<div class="panels">
+  <section class="chat" aria-labelledby="chat-title">
+    <h2 id="chat-title">Chat</h2>
+    <p class="hint">
+      Tell the assistant about yourself: height, weight, experience, goals, and how often
+      and how long you want to train.
+    </p>
+
+    <ol class="messages" aria-live="polite">
+      @for (message of messages(); track $index) {
+        <li [class]="message.role">
+          <strong>{{ message.role === 'user' ? 'You' : 'Assistant' }}:</strong>
+          {{ message.content }}
+        </li>
+      } @empty {
+        <li class="empty">No messages yet.</li>
+      }
+      @if (sending()) {
+        <li class="assistant pending">Assistant is typing…</li>
+      }
+    </ol>
+
+    @if (unsavedEdits()) {
+      <p class="notice" role="status">Save your edits to the profile before chatting.</p>
+    }
+    @if (chatNotice()) {
+      <p class="notice" role="status">{{ chatNotice() }}</p>
+    }
+    @if (chatError()) {
+      <p class="error" role="alert">{{ chatError() }}</p>
+    }
+
+    <form [formGroup]="chatForm" (ngSubmit)="send()">
+      <label for="chat-message">Your message</label>
+      <textarea
+        id="chat-message"
+        formControlName="message"
+        rows="3"
+        [attr.maxlength]="maxLength"
+      ></textarea>
+      <button type="submit" [disabled]="!canSend()">Send</button>
+    </form>
+  </section>
+
+  <section class="card" aria-labelledby="card-title">
+    <h2 id="card-title">Profile</h2>
+
+    @if (loading()) {
+      <p role="status">Loading your profile…</p>
+    }
+    @if (loadError()) {
+      <p class="error" role="alert">{{ loadError() }}</p>
+    }
+
+    @if (missing().length) {
+      <p class="missing">Still needed: {{ missing().join(', ') }}</p>
+    } @else {
+      <p class="missing done">All core fields are filled in.</p>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="save()">
+      <label for="name">Name</label>
+      <input id="name" formControlName="name" autocomplete="off" />
+
+      <label for="height_cm">Height (cm)</label>
+      <input
+        id="height_cm"
+        type="number"
+        formControlName="height_cm"
+        step="0.1"
+        aria-describedby="height_cm-error"
+        [attr.aria-invalid]="showRangeError('height_cm')"
+      />
+      @if (showRangeError('height_cm')) {
+        <small id="height_cm-error" class="error">More than 100 and less than 250 cm.</small>
+      }
+
+      <label for="weight_kg">Weight (kg)</label>
+      <input
+        id="weight_kg"
+        type="number"
+        formControlName="weight_kg"
+        step="0.1"
+        aria-describedby="weight_kg-error"
+        [attr.aria-invalid]="showRangeError('weight_kg')"
+      />
+      @if (showRangeError('weight_kg')) {
+        <small id="weight_kg-error" class="error">More than 30 and less than 300 kg.</small>
+      }
+
+      <label for="experience">Experience</label>
+      <select id="experience" formControlName="experience">
+        <option value="">Not given</option>
+        <option value="beginner">Beginner</option>
+        <option value="intermediate">Intermediate</option>
+        <option value="advanced">Advanced</option>
+      </select>
+
+      <label for="goals">Goals (comma-separated)</label>
+      <input id="goals" formControlName="goals" />
+
+      <label for="workout_days">Workout days per week</label>
+      <input
+        id="workout_days"
+        type="number"
+        formControlName="workout_days"
+        step="1"
+        aria-describedby="workout_days-error"
+        [attr.aria-invalid]="showRangeError('workout_days')"
+      />
+      @if (showRangeError('workout_days')) {
+        <small id="workout_days-error" class="error">A whole number from 1 to 6.</small>
+      }
+
+      <label for="session_minutes">Session length (minutes)</label>
+      <input
+        id="session_minutes"
+        type="number"
+        formControlName="session_minutes"
+        step="1"
+        aria-describedby="session_minutes-error"
+        [attr.aria-invalid]="showRangeError('session_minutes')"
+      />
+      @if (showRangeError('session_minutes')) {
+        <small id="session_minutes-error" class="error">A whole number from 15 to 120.</small>
+      }
+
+      <label for="split_preference">Split preference</label>
+      <input id="split_preference" formControlName="split_preference" />
+
+      <label for="equipment">Equipment (comma-separated)</label>
+      <input id="equipment" formControlName="equipment" />
+
+      <label for="injuries">Injuries (comma-separated)</label>
+      <input id="injuries" formControlName="injuries" />
+
+      <label for="health_notes">Health notes</label>
+      <textarea id="health_notes" formControlName="health_notes" rows="2"></textarea>
+
+      <label for="dietary_preferences">Dietary preferences (comma-separated)</label>
+      <input id="dietary_preferences" formControlName="dietary_preferences" />
+
+      <label for="dietary_restrictions">Dietary restrictions and allergies (comma-separated)</label>
+      <input id="dietary_restrictions" formControlName="dietary_restrictions" />
+
+      <button type="submit" [disabled]="!canSave()">Save</button>
+      @if (saveMessage()) {
+        <p role="status">{{ saveMessage() }}</p>
+      }
+      @if (saveError()) {
+        <p class="error" role="alert">{{ saveError() }}</p>
+      }
+    </form>
+  </section>
+</div>
