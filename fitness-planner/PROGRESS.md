@@ -34,7 +34,7 @@ Status: Not started · In progress · Done · Blocked
 | B4 | Angular calendar upload + plan view (minimal → full) | 1–2 | ? | Not started | — |
 | A2 | Profile storage (SQLite) | 2 | Ben | Done (`db.py`, GET/PUT `/api/profile`, chat reads and saves the profile; 111 offline tests pass; synthetic profile survived a manual server restart; chat link not yet tried on the real model) | 2026-11-26 Ben |
 | A4 | Workout log + personal bests | 2 | Ben | Done (`workout_log.py`, log table in `db.py`, `/log` page; 145 back-end and 45 front-end tests pass; entries, a tie, name matching and a no-weight entry seen in the browser before the review fixes) | 2026-11-26 Ben |
-| B3 | Plan checks + exercise allow-list + retry | 2 | ? | Not started | — |
+| B3 | Plan checks + exercise allow-list + retry | 2 | Ben | Done offline (`plan_checks.py`, 45-exercise `app/data/exercises.json`, one retry in `plan.py`; 392 back-end tests pass; not yet tried on the real model — no API key) | 2026-11-26 Ben |
 | C3 | Input guardrails + wiring | 2 | Ben | Done (wired into the profile chat; B2 wired the `.ics` size check, health flags, the 400 refusal format and an injection screen of saved-profile text before the plan call) | 2026-11-26 Ben |
 | A5 | 8 profile test cases | 3 | Ben | In progress (9 cases in `eval/cases/profile.json`, format in `eval/cases/README.md`, offline file check passes; not run or scored — needs the C4 harness and an API key) | 2026-11-26 Ben |
 | B5 | 8 plan test cases + fixtures | 3 | ? | Not started | — |
@@ -89,7 +89,10 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 - [ ] **Ben:** Commits from Ben's machine show the author as "MainPC". Change the git name?
 - [x] **B / C:** Wire `POST /api/calendar` endpoint — done in B2 (2026-11-26), in `plan.py`.
 - [ ] **Ben (B2):** If `POST /api/plan` gets a `week_of` that differs from the uploaded calendar's first day, it refuses with 400 ("Upload a calendar for that week"). Agent choice — confirm or change.
-- [ ] **B3:** The plan prompt asks the model for "common exercise names"; replace that with the `exercises.json` allow-list and add the output checks + one retry. The 200 KB `.ics` limit is checked after the upload is received (fine for the local demo).
+- [ ] **B / C:** The 200 KB `.ics` limit is checked after the upload is received (fine for the local demo).
+- [ ] **Ben (B3):** Add a minimum session length (e.g. 15 minutes)? Today a 1-minute session passes the checks.
+- [ ] **Ben / C5 (B3):** Label the retry call `"plan_retry"` in the usage log so C5 can count retries? Both calls use `"plan"` today.
+- [ ] **B (B3):** Optional: add a few no-equipment cardio exercises to `exercises.json` (e.g. "March in place").
 - [ ] **A / team:** Do we attempt the voice-input stretch goal? Decide by the end of Phase 2.
 - [x] **C:** (both added; `httpx` approved by Ben 2026-11-24) Add `pytest` and `httpx` to `backend/requirements.txt` so `/api/health` (and later steps) get automated tests with FastAPI's `TestClient`? Needs approval (new dependencies).
 - [ ] **Team:** Does the instructor need an addendum to the proposal for the scope change (meal photos and diet tracking deferred)?
@@ -98,6 +101,7 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 
 | Date | Decision | Decided by |
 |---|---|---|
+| 2026-11-26 | B3: exercise names match ignoring case and extra spaces, and the listed activity type must match; fewer free days than `workout_days` → 400 refusal before any model call; a second failed plan → 502 `{"error": "The plan did not pass the checks", "detail": problems}`, nothing saved; the retry sends the finished failed plan plus the problem list (at most 2 calls); session length = end − start | Ben |
 | 2026-11-26 | Work on B2 this session (B furthest behind); keep git name "Anozin" | Ben |
 | 2026-11-26 | B2: add `python-multipart` (`>=0.0.9,<1`, bounds chosen by agent) for the `.ics` form upload | Ben |
 | 2026-11-26 | B2: all plan and slot times are local with no time zone; a time zone from the model is converted to local and dropped (answers the B open question on time zones) | Ben |

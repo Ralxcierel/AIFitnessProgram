@@ -17,7 +17,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from backend.app import db, guardrails, main, plan
+from backend.app import db, guardrails, main, plan, plan_checks
 from backend.app.llm import LLMError
 from backend.app.schemas import Exercise, FreeSlot, Session, UserProfile, WeeklyPlan
 
@@ -46,16 +46,23 @@ def session(day: int, hour: int, tz: timezone | None = None) -> Session:
         start=start,
         end=start + timedelta(minutes=45),
         focus="Full body",
-        exercises=[Exercise(name="Squat", activity_type="strength", sets=3, reps=10)],
+        exercises=[
+            Exercise(name="Goblet squat", activity_type="strength", sets=3, reps=10)
+        ],
     )
 
 
 class FakeModel:
-    """Stands in for call_model() and records each call."""
+    """Stands in for call_model() and records each call.
+
+    Returns `response` each time, unless `responses` lists one per call
+    (an LLMError in that list is raised instead).
+    """
 
     def __init__(self) -> None:
         self.calls: list[tuple] = []
         self.error: LLMError | None = None
+        self.responses: list[WeeklyPlan | LLMError] = []
         self.response = WeeklyPlan(
             week_of=date(2020, 1, 1),  # wrong on purpose; Python sets the week
             sessions=[session(0, 6), session(2, 18), session(4, 18)],
@@ -63,9 +70,15 @@ class FakeModel:
         )
 
     def __call__(self, feature, messages, response_model) -> WeeklyPlan:
-        self.calls.append((feature, messages, response_model))
+        # Copy the list: plan.py appends to it for the retry.
+        self.calls.append((feature, list(messages), response_model))
         if self.error:
             raise self.error
+        if self.responses:
+            response = self.responses.pop(0)
+            if isinstance(response, LLMError):
+                raise response
+            return response
         return self.response
 
 
@@ -294,8 +307,13 @@ def test_no_health_note_without_flags(model: FakeModel, client: TestClient) -> N
 
 @pytest.mark.parametrize("offset_hours", [0, -7, 5.5])
 def test_session_times_with_a_time_zone_become_local(
-    offset_hours: float, model: FakeModel, client: TestClient
+    offset_hours: float,
+    model: FakeModel,
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Only the time conversion is under test here, not the rule checks.
+    monkeypatch.setattr(plan_checks, "check_plan", lambda *args: [])
     aware = session(0, 13, timezone(timedelta(hours=offset_hours)))
     model.response = model.response.model_copy(update={"sessions": [aware]})
     ready(client)
@@ -323,6 +341,137 @@ def test_model_failure_is_502_and_saves_no_plan(
     assert result.status_code == 502
     assert result.json()["error"] == "The model call failed"
     assert db.load_plan() is None
+
+
+# --- B3: rule checks and one retry ---
+
+
+def bad_plan() -> WeeklyPlan:
+    """Two sessions instead of three, one of them during a busy block."""
+    return WeeklyPlan(week_of=MONDAY, sessions=[session(0, 6), session(1, 10)])
+
+
+def test_too_few_free_days_is_refused_without_a_model_call(
+    model: FakeModel, client: TestClient
+) -> None:
+    db.save_profile(PROFILE.model_copy(update={"workout_days": 4}))
+    slots = [
+        FreeSlot(start=datetime(2026, 11, 23 + d, 6), end=datetime(2026, 11, 23 + d, 9))
+        for d in range(3)
+    ]
+    db.save_free_slots(MONDAY, slots)
+    detail = refusal(client.post(PLAN_URL))
+    assert detail == (
+        "Your calendar has free time on only 3 days this week, but your "
+        "profile asks for 4 workouts."
+    )
+    assert model.calls == []
+
+
+def test_valid_plan_needs_only_one_call(model: FakeModel, client: TestClient) -> None:
+    ready(client)
+    assert client.post(PLAN_URL).status_code == 200
+    assert len(model.calls) == 1
+
+
+def test_bad_plan_gets_one_retry_with_the_problems(
+    model: FakeModel, client: TestClient
+) -> None:
+    first = bad_plan()
+    model.responses = [first, model.response]
+    ready(client)
+    result = client.post(PLAN_URL)
+    assert result.status_code == 200
+    assert WeeklyPlan.model_validate(result.json()).sessions == model.response.sessions
+    assert len(model.calls) == 2
+    retry = model.calls[1][1]
+    assert retry[:2] == model.calls[0][1]  # same prompt and input
+    sent_back = WeeklyPlan.model_validate_json(retry[2]["content"])
+    assert retry[2]["role"] == "assistant"
+    assert sent_back.sessions == first.sessions
+    assert sent_back.week_of == MONDAY  # the finished plan, not the raw draft
+    assert retry[3]["role"] == "user"
+    assert "The plan has 2 sessions, but the profile asks for 3." in retry[3]["content"]
+    assert "is not fully inside one free time slot." in retry[3]["content"]
+    assert len(retry) == 4
+
+
+def test_second_bad_plan_is_502_with_problems_and_saves_nothing(
+    model: FakeModel, client: TestClient
+) -> None:
+    model.response = bad_plan()
+    ready(client)
+    result = client.post(PLAN_URL)
+    assert result.status_code == 502
+    body = result.json()
+    assert body["error"] == plan.CHECKS_FAILED
+    assert "The plan has 2 sessions, but the profile asks for 3." in body["detail"]
+    assert len(model.calls) == 2
+    assert db.load_plan() is None
+    assert client.get(CURRENT_URL).status_code == 404
+
+
+def test_model_failure_on_the_retry_is_502(
+    model: FakeModel, client: TestClient
+) -> None:
+    model.responses = [bad_plan(), LLMError("OpenAI call failed: APITimeoutError")]
+    ready(client)
+    result = client.post(PLAN_URL)
+    assert len(model.calls) == 2
+    assert result.status_code == 502
+    assert result.json()["error"] == "The model call failed"
+    assert db.load_plan() is None
+
+
+def test_checks_run_on_local_times(model: FakeModel, client: TestClient) -> None:
+    # 06:00 local on Monday, written as the same moment in UTC. It fits the
+    # 06:00-09:00 free slot only after conversion to local time.
+    local = datetime(2026, 11, 23, 6, 0)
+    utc_start = local.astimezone().astimezone(timezone.utc)
+    aware = session(0, 6).model_copy(
+        update={"start": utc_start, "end": utc_start + timedelta(minutes=45)}
+    )
+    sessions = [aware, *model.response.sessions[1:]]
+    model.response = model.response.model_copy(update={"sessions": sessions})
+    ready(client)
+    result = client.post(PLAN_URL)
+    assert result.status_code == 200
+    assert len(model.calls) == 1  # passed the checks without a retry
+    assert WeeklyPlan.model_validate(result.json()).sessions[0].start == local
+
+
+@pytest.mark.parametrize(
+    ("exercise", "problem"),
+    [
+        (
+            Exercise(name="Moon jump", activity_type="cardio", sets=1, reps=5),
+            '"Moon jump" is not on the exercise list.',
+        ),
+        (
+            Exercise(name="brisk WALK", activity_type="strength", sets=1, reps=20),
+            '"Brisk walk" is cardio, not strength.',
+        ),
+    ],
+)
+def test_exercise_problem_triggers_the_retry(
+    exercise: Exercise, problem: str, model: FakeModel, client: TestClient
+) -> None:
+    first_session = model.response.sessions[0].model_copy(
+        update={"exercises": [exercise]}
+    )
+    first = model.response.model_copy(
+        update={"sessions": [first_session, *model.response.sessions[1:]]}
+    )
+    model.responses = [first, model.response]
+    ready(client)
+    assert client.post(PLAN_URL).status_code == 200
+    assert len(model.calls) == 2
+    assert problem in model.calls[1][1][3]["content"]
+
+
+def test_prompt_lists_every_allowed_exercise() -> None:
+    for name in plan_checks.allowed_names():
+        assert f"- {name}: " in plan.SYSTEM_PROMPT
 
 
 # --- GET /api/plan/current ---
