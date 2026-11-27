@@ -1,0 +1,88 @@
+<h1>Weekly plan</h1>
+
+<!-- Always on the page, so screen readers announce each new status. -->
+<p class="status" role="status">{{ statusText() }}</p>
+
+<div class="panels">
+  <section aria-labelledby="upload-title">
+    <h2 id="upload-title">1. Upload your calendar</h2>
+    <p class="hint">
+      An .ics file (up to 200 KB). Only your free times are used; event names are never saved.
+    </p>
+    <label for="calendar">Calendar file</label>
+    <input
+      id="calendar"
+      type="file"
+      accept=".ics,text/calendar"
+      [disabled]="uploading() || planning()"
+      (change)="upload($event)"
+    />
+    @if (uploadError()) {
+      <p class="error" role="alert">{{ uploadError() }}</p>
+    }
+    @if (slotDays().length) {
+      <h3>Free times this week</h3>
+      <ul class="slots">
+        @for (day of slotDays(); track day.day) {
+          <li><strong>{{ day.day }}</strong>: {{ day.times.join(', ') }}</li>
+        }
+      </ul>
+    }
+
+    <h2>2. Make your plan</h2>
+    <p class="hint">Uses your saved profile and the last calendar you uploaded.</p>
+    <button type="button" (click)="makePlan()" [disabled]="planning() || uploading()">
+      Make my plan
+    </button>
+    @if (planError()) {
+      <p class="error" role="alert">{{ planError() }}</p>
+    }
+  </section>
+
+  <section class="week" aria-labelledby="week-title">
+    @let week = plan();
+    <h2 id="week-title">{{ week ? 'Your week of ' + dayLabel(week.week_of) : 'Your week' }}</h2>
+    @if (loadError()) {
+      <p class="error" role="alert">{{ loadError() }}</p>
+    }
+    @if (week) {
+      @if (week.notes.length) {
+        <ul class="notes">
+          @for (note of week.notes; track $index) {
+            <li>{{ note }}</li>
+          }
+        </ul>
+      }
+      @for (session of week.sessions; track $index) {
+        <article class="session">
+          <h3>
+            {{ dayLabel(session.start) }}, {{ timeRange(session.start, session.end) }} ·
+            {{ session.focus }}
+          </h3>
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Exercise</th>
+                <th scope="col">Type</th>
+                <th scope="col">Sets × reps</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (exercise of session.exercises; track $index) {
+                <tr>
+                  <td>{{ exercise.name }}</td>
+                  <td>{{ exercise.activity_type }}</td>
+                  <td>{{ exercise.sets }} × {{ exercise.reps }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </article>
+      } @empty {
+        <p class="empty">This plan has no sessions.</p>
+      }
+    } @else if (!loading() && !loadError()) {
+      <p class="empty">No plan yet. Upload your calendar, then make your plan.</p>
+    }
+  </section>
+</div>

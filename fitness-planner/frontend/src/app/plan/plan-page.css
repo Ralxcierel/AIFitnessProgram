@@ -1,0 +1,62 @@
+.panels {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  align-items: start;
+}
+
+label {
+  display: block;
+  margin-top: 0.5rem;
+  font-weight: 600;
+}
+
+button {
+  margin-top: 0.5rem;
+}
+
+.hint,
+.empty {
+  color: #555;
+}
+
+.status {
+  min-height: 1.5em;
+  font-weight: 600;
+}
+
+.slots,
+.notes {
+  padding-left: 1.25rem;
+}
+
+.notes li {
+  margin-bottom: 0.25rem;
+}
+
+.session {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.5rem 1rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.session h3 {
+  font-size: 1rem;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th,
+td {
+  border-bottom: 1px solid #ddd;
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+}
+
+.error {
+  color: #b00020;
+}

@@ -55,6 +55,11 @@ export interface FreeSlot {
   end: string;
 }
 
+/** Returned by POST /api/calendar; mirrors CalendarResponse in backend/app/plan.py. */
+export interface CalendarResponse {
+  free_slots: FreeSlot[];
+}
+
 export interface Exercise {
   name: string;
   activity_type: ActivityType;

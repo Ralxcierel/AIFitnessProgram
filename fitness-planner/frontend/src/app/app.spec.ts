@@ -26,7 +26,7 @@ describe('App', () => {
     });
   }
 
-  it('shows the profile page at /profile, with links to both pages', async () => {
+  it('shows the profile page at /profile, with links to every page', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     await TestBed.inject(Router).navigateByUrl('/profile');
@@ -50,7 +50,20 @@ describe('App', () => {
     const page = fixture.nativeElement as HTMLElement;
     expect(page.querySelector('main h1')?.textContent).toBe('Your profile');
     const links = Array.from(page.querySelectorAll('nav a')).map((a) => a.getAttribute('href'));
-    expect(links).toEqual(['/', '/profile', '/log']);
+    expect(links).toEqual(['/', '/profile', '/plan', '/log']);
+  });
+
+  it('shows the plan page at /plan', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    await TestBed.inject(Router).navigateByUrl('/plan');
+    TestBed.inject(HttpTestingController)
+      .expectOne('/api/plan/current')
+      .flush({ error: 'No plan yet', detail: null }, { status: 404, statusText: 'Not Found' });
+    await fixture.whenStable();
+
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.querySelector('main h1')?.textContent).toBe('Weekly plan');
   });
 
   it('shows the workout log page at /log', async () => {

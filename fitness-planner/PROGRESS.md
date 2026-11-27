@@ -31,7 +31,7 @@ Status: Not started · In progress · Done · Blocked
 | B1 | `.ics` parser + free slots + fixtures | 1 | Jadon | Done | 2026-11-20 |
 | B2 | Plan generation endpoint | 1 | Ben | Done offline (`POST /api/calendar`, `POST /api/plan`, `GET /api/plan/current` in `plan.py`; 32 offline tests with a fake model, 361 back-end tests pass; prompt not yet tried on the real model — no API key) | 2026-11-26 Ben |
 | A3 | Angular profile page (minimal → full) | 1–2 | Ben | Done (`/profile`: chat panel + editable card; 26 front-end tests pass; save, reload and the "assistant unavailable" chat error seen in the browser; a real chat reply not yet seen — no API key) | 2026-11-26 Ben |
-| B4 | Angular calendar upload + plan view (minimal → full) | 1–2 | ? | Not started | — |
+| B4 | Angular calendar upload + plan view (minimal → full) | 1–2 | Ben | Done offline (`/plan` page: upload, free times by day, "Make my plan", week view with notes and sessions; 80 front-end tests pass, build OK; upload, re-upload and the "Finish your profile first" refusal seen in the browser with a synthetic calendar; a real plan not yet seen — no API key) | 2026-11-26 Ben |
 | A2 | Profile storage (SQLite) | 2 | Ben | Done (`db.py`, GET/PUT `/api/profile`, chat reads and saves the profile; 111 offline tests pass; synthetic profile survived a manual server restart; chat link not yet tried on the real model) | 2026-11-26 Ben |
 | A4 | Workout log + personal bests | 2 | Ben | Done (`workout_log.py`, log table in `db.py`, `/log` page; 145 back-end and 45 front-end tests pass; entries, a tie, name matching and a no-weight entry seen in the browser before the review fixes) | 2026-11-26 Ben |
 | B3 | Plan checks + exercise allow-list + retry | 2 | Ben | Done offline (`plan_checks.py`, 45-exercise `app/data/exercises.json`, one retry in `plan.py`; 392 back-end tests pass; not yet tried on the real model — no API key) | 2026-11-26 Ben |
@@ -92,6 +92,9 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 - [ ] **B / C:** The 200 KB `.ics` limit is checked after the upload is received (fine for the local demo).
 - [ ] **Ben (B3):** Add a minimum session length (e.g. 15 minutes)? Today a 1-minute session passes the checks.
 - [ ] **Ben / C5 (B3):** Label the retry call `"plan_retry"` in the usage log so C5 can count retries? Both calls use `"plan"` today.
+- [ ] **A:** `frontend/src/app/core/error-text.ts` now holds the shared `errorText()` helper (B4). The profile and log pages still have their own copies; switch them over when convenient.
+- [ ] **A / B (contract):** `api.types.ts` now has `CalendarResponse`; keep it in step with `CalendarResponse` in `backend/app/plan.py`.
+- [ ] **Ben (B2/B4):** "Finish your profile first. Still missing: height_cm, weight_kg, …" shows raw field names on the plan page. Use friendly names ("height", "weight")? Small change in `plan.py`.
 - [ ] **B (B3):** Optional: add a few no-equipment cardio exercises to `exercises.json` (e.g. "March in place").
 - [ ] **A / team:** Do we attempt the voice-input stretch goal? Decide by the end of Phase 2.
 - [x] **C:** (both added; `httpx` approved by Ben 2026-11-24) Add `pytest` and `httpx` to `backend/requirements.txt` so `/api/health` (and later steps) get automated tests with FastAPI's `TestClient`? Needs approval (new dependencies).
@@ -101,6 +104,8 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 
 | Date | Decision | Decided by |
 |---|---|---|
+| 2026-11-26 | Contract change: add `CalendarResponse` (`{free_slots: FreeSlot[]}`) to `frontend/src/app/core/api.types.ts`, mirroring `CalendarResponse` in `backend/app/plan.py` | Ben |
+| 2026-11-26 | B4: `/plan` page between Profile and Log in the menu; shared `core/error-text.ts` used by the plan page only; a new upload clears the plan on screen; files over 200 KB refused in the browser too; one always-present status line for screen readers; tested with fake HTTP plus a browser check | Ben |
 | 2026-11-26 | B3: exercise names match ignoring case and extra spaces, and the listed activity type must match; fewer free days than `workout_days` → 400 refusal before any model call; a second failed plan → 502 `{"error": "The plan did not pass the checks", "detail": problems}`, nothing saved; the retry sends the finished failed plan plus the problem list (at most 2 calls); session length = end − start | Ben |
 | 2026-11-26 | Work on B2 this session (B furthest behind); keep git name "Anozin" | Ben |
 | 2026-11-26 | B2: add `python-multipart` (`>=0.0.9,<1`, bounds chosen by agent) for the `.ics` form upload | Ben |
