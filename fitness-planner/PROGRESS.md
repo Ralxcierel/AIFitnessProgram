@@ -8,15 +8,19 @@ Agents: read this at `/start`, update the step status as you finish each step, a
 
 **Phase 0 — Setup and contracts** (target Nov 13). Steps C0, C1, C2 must be done before any step that calls the model.
 
-**State on 2026-11-26:** C0 and C2 are done. C1 still waits for its live call (no API key), so Phase 0 is **not** formally complete. With Ben's OK, work went ahead offline: A2, A3, A4 done; C3 built (B must wire two checks); A5 cases written (Phase 3, not run). Nothing has been tested against the real model yet. B2, B3, B4, C4, C5 not started. The demo video is due **Dec 2**.
+**State on 2026-11-26 (end of Ben's second session):** every step of Phases 0–2 is **built**, and Phase 3 is built except C5: C0, C2, A2, A3, A4, B1, B2, B3, B4, C3 done; A5, B5 cases written; C4 harness + all 25 eval cases done. **Nothing has been run against the real model yet** (no API key): C1's live call, the A1 prompt, the plan prompt, and every eval case are untested on `gpt-6-luna`. So Phases 0–2 are not formally complete, and Phase 3 still needs C5 and a live eval run. With Ben's OK, Phase 3 work started offline anyway. The demo video is due **Dec 2**.
 
 ## Next up
 
-**If the API key is available — Workstream C, step C1 live call:** create `fitness-planner/.env` (human only), fill in the key and prices, then make one approved live call through `call_model()` with a synthetic persona and check that it adds one line to `logs/usage.jsonl` with tokens, latency and cost. If OpenAI rejects the `default` values in `schemas.py`, stop and ask. Then try the A1 profile chat in the browser at `/profile` with a synthetic persona (ask first; about 3–5 calls).
+**If the API key is available — Workstream C, live checks in this order (ask before each; all cost money):**
+1. C1 live call: the human creates `fitness-planner/.env` from `.env.example` (key, `OPENAI_MODEL=gpt-6-luna`, prices). One call through `call_model()` with a synthetic persona; check that `logs/usage.jsonl` gets one line with tokens, latency and cost. If OpenAI rejects the `default` values in `schemas.py`, stop and ask.
+2. First eval: `backend\.venv\Scripts\python eval\run_eval.py --only profile-01-all-in-one-metric plan-01-beginner-3-days --live` (about 3 calls). Read the report in `eval/results/`; fix prompts if needed (ask first).
+3. Full eval: `... eval\run_eval.py --live` (25 cases, about 31 calls, at most 38). Commit the report.
+4. Browser demo flow with a synthetic persona: `/profile` chat → `/plan` upload `eval/fixtures/normal.ics` → "Make my plan" → `/log`.
 
-**If there is still no key — Workstream B, step B2 or C4 offline:** B2 (plan endpoint) can be built with a fake `call_model` in tests, like `backend/tests/test_profile.py` does, and should wire in `guardrails.ics_is_too_large()`, `guardrails.health_flags()` and the 400 refusal format (DESIGN.md §5). C4 (eval harness) can be built to read `eval/cases/profile.json` using `eval/cases/README.md`, tested with a fake model. B is furthest behind, so B2 first if a B person is available.
+**If there is still no key — Workstream C, step C5 offline:** add a `--mode baseline` to `eval/run_eval.py`: a naive single prompt (same model, profile + raw calendar text, no free-slot preprocessing, no plan checks or retry, no guardrails) scored by the rules already written in `eval/cases/README.md` → "Baseline scoring" (reports are named `<time>-<mode>`). Test it with a fake model like `backend/tests/test_run_eval.py`. Then `summarize_usage.py` for the README cost table (tokens and `cost_usd` can be `null`; cached calls log 0).
 
-*(Setup on a new machine: `pip install -r requirements.txt` in `backend/.venv` and `npm ci` in `frontend/`.)*
+*(Setup on a new machine: `pip install -r requirements.txt` in `backend/.venv` — B2 added `python-multipart` — and `npm ci` in `frontend/`.)*
 
 ## Status board
 
@@ -186,6 +190,26 @@ Newest first. Copy the template for each new session.
 - **Pushed:** yes / no (reason)
 - **Notes for the next person:**
 -->
+
+### 2026-11-26 (session 2) — Ben — Claude Code — Workstreams B and C
+
+- **Goal this session:** pick up B or C, whichever mattered more; Ben chose B (furthest behind), then Phase 3 offline (B5, C4).
+- **Steps worked on:** B2 (Done offline), B3 (Done offline), B4 (Done offline), C3 (now Done: B wired its checks), B5 (In progress: cases written, not run), C4 (Done offline: harness + all 25 cases, never run live).
+- **What was done:**
+  - B2: `POST /api/calendar` (form upload, 200 KB limit, saves free slots only), `POST /api/plan` (refusals without a model call, health note, injection screen of saved profile text), `GET /api/plan/current`.
+  - B3: `plan_checks.py` (§8 rules), 45-exercise allow-list, one retry with the problem list, 502 after a second failure.
+  - B4: `/plan` page (upload, free times, make plan, week view); shared `core/error-text.ts`; contract `CalendarResponse`.
+  - B5: 8 plan eval cases with format, scoring and baseline rules.
+  - C4: `eval/run_eval.py` + `eval/metrics.py` (lists by default, `--live` to run), 5 safety + 3 injection cases, fixture `full.ics`.
+- **Files created / modified / deleted:**
+  - created: `backend/app/plan.py`, `plan_checks.py`, `data/exercises.json`; `backend/tests/test_plan.py`, `test_plan_checks.py`, `test_metrics.py`, `test_run_eval.py`; `frontend/src/app/plan/` (6 files), `core/error-text.ts` (+ spec); `eval/run_eval.py`, `eval/metrics.py`, `eval/cases/plan.json`, `safety.json`, `injection.json`, `eval/fixtures/full.ics`
+  - modified: `backend/app/db.py`, `main.py`, `requirements.txt` (`python-multipart`), `backend/tests/test_eval_cases.py`; `frontend/src/app/core/api.types.ts` (contract), `app.routes.ts`, `app.html`, `app.spec.ts`; `eval/cases/README.md`, `PROGRESS.md`, `docs/AI_USE.md`
+  - deleted: none
+- **Tests:** `pytest` in `backend/`: 558 passed. `npm test -- --watch=false` in `frontend/`: 80 passed. Production build succeeded. All offline; **no OpenAI calls were made**. `/plan` checked by hand in the browser with a synthetic calendar (upload, re-upload, "Finish your profile first" refusal). `run_eval.py` listing run for real; one attempt to confirm `--live` stops without settings was blocked by the tool's safety check and not retried (the same path is covered by an offline test).
+- **Reviews:** one section reviewer each for B2, B3, B4, B5, C4a, C4b; no high findings; fixes made with Ben's approval each time.
+- **Unfinished or left as-is:** C5 (baseline mode, usage summary) not started; every model-facing part untested live; Ben's open questions below (week refusal, minimum session length, retry label, friendly field names, calorie check); "only 1 days" wording bug; profile and log pages still have their own `errorText()` copy. A local, untracked `.claude/launch.json` (browser-preview config for the two servers) is on Ben's machine; it is not committed.
+- **Pushed:** yes (B2, B3, B4 mid-session; B5, C4 and this wrap-up at the end)
+- **Notes for the next person:** `pip install -r requirements.txt` again (new `python-multipart`). Commit messages with double quotes break in PowerShell; use `git commit -F <file>`. The browser check uploaded a synthetic calendar into Ben's local `backend/data/app.db` (gitignored).
 
 ### 2026-11-26 — Ben — Claude Code — Workstreams A and C
 
