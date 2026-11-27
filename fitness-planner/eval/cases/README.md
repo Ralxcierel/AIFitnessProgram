@@ -1,6 +1,26 @@
 # Evaluation cases
 
-Test cases for `eval/run_eval.py` (step C4). One JSON file per group (DESIGN.md §10):
+Test cases for `eval/run_eval.py` (step C4). One JSON file per group (DESIGN.md §10).
+
+## Running the eval
+
+From the `fitness-planner` folder (Windows paths shown; on Mac/Linux use `backend/.venv/bin/python`):
+
+| Command | What it does |
+|---|---|
+| `backend\.venv\Scripts\python eval\run_eval.py` | Lists every case and the most model calls it could make. **Calls nothing.** |
+| `... eval\run_eval.py --group plan` | The same for one group (`profile` or `plan`). |
+| `... eval\run_eval.py --only profile-01-all-in-one-metric plan-01-beginner-3-days --live` | Runs just these cases against the real model. Do this first (AGENTS.md §9: 2–3 cases, and tell the human the number of calls). |
+| `... eval\run_eval.py --live` | Runs every case. Uses the dev response cache (`eval/cache/`) unless you add `--no-cache`; use `--no-cache` for the final graded run. |
+
+- `--live` reads `fitness-planner/.env` (never printed) and stops if `OPENAI_MODEL` is not set. **It costs money: ask the human first.**
+- **Stop the dev back end first.** Usage is matched to cases by the lines added to `logs/usage.jsonl`, so model calls from a running server would be counted in the eval.
+- Each case runs in-process through the FastAPI app with its own throwaway database; plan cases use the fixed week in `plan.json`.
+- A case that errors (model failure, 502, harness error) is scored as failed and the run goes on.
+- Reports: `eval/results/<UTC time>-pipeline.json` (every check, per-case usage from `logs/usage.jsonl`) and a `.md` summary. They hold scores and usage only, never chat or profile text. Commit them.
+- Scoring lives in `eval/metrics.py`; tests in `backend/tests/test_metrics.py` and `test_run_eval.py` (fake model, no API calls).
+
+## Case files
 
 | File | Group | Step | Status |
 |---|---|---|---|

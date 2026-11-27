@@ -193,6 +193,7 @@ def test_plan_expectations_fit_the_status(case: dict[str, Any]) -> None:
     for rule in ("notes_contain", "detail_contains"):
         assert_keyword_groups(expect[rule])
     if expect["status"] == 200:
+        # eval/metrics.py always scores passes_checks as "must pass".
         assert expect["passes_checks"] is True
         assert expect["session_count"] == workout_days
         assert expect["detail_contains"] == []
