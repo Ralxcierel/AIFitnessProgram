@@ -29,13 +29,13 @@ Status: Not started · In progress · Done · Blocked
 | C2 | Finalize `schemas.py` + `api.types.ts` | 0 | Ben | Done (`schemas.py` and `api.types.ts` match) | 2026-11-24 Ben |
 | A1 | Profile chat endpoint | 1 | Ben | In progress (code + offline tests; prompt not yet tried on the real model) | 2026-11-24 Ben |
 | B1 | `.ics` parser + free slots + fixtures | 1 | Jadon | Done | 2026-11-20 |
-| B2 | Plan generation endpoint | 1 | ? | Not started | — |
+| B2 | Plan generation endpoint | 1 | Ben | Done offline (`POST /api/calendar`, `POST /api/plan`, `GET /api/plan/current` in `plan.py`; 32 offline tests with a fake model, 361 back-end tests pass; prompt not yet tried on the real model — no API key) | 2026-11-26 Ben |
 | A3 | Angular profile page (minimal → full) | 1–2 | Ben | Done (`/profile`: chat panel + editable card; 26 front-end tests pass; save, reload and the "assistant unavailable" chat error seen in the browser; a real chat reply not yet seen — no API key) | 2026-11-26 Ben |
 | B4 | Angular calendar upload + plan view (minimal → full) | 1–2 | ? | Not started | — |
 | A2 | Profile storage (SQLite) | 2 | Ben | Done (`db.py`, GET/PUT `/api/profile`, chat reads and saves the profile; 111 offline tests pass; synthetic profile survived a manual server restart; chat link not yet tried on the real model) | 2026-11-26 Ben |
 | A4 | Workout log + personal bests | 2 | Ben | Done (`workout_log.py`, log table in `db.py`, `/log` page; 145 back-end and 45 front-end tests pass; entries, a tie, name matching and a no-weight entry seen in the browser before the review fixes) | 2026-11-26 Ben |
 | B3 | Plan checks + exercise allow-list + retry | 2 | ? | Not started | — |
-| C3 | Input guardrails + wiring | 2 | Ben | In progress (`guardrails.py` done and wired into the profile chat; 329 back-end and 48 front-end tests pass; B must still wire the `.ics` size check and health flags into its endpoints) | 2026-11-26 Ben |
+| C3 | Input guardrails + wiring | 2 | Ben | Done (wired into the profile chat; B2 wired the `.ics` size check, health flags, the 400 refusal format and an injection screen of saved-profile text before the plan call) | 2026-11-26 Ben |
 | A5 | 8 profile test cases | 3 | Ben | In progress (9 cases in `eval/cases/profile.json`, format in `eval/cases/README.md`, offline file check passes; not run or scored — needs the C4 harness and an API key) | 2026-11-26 Ben |
 | B5 | 8 plan test cases + fixtures | 3 | ? | Not started | — |
 | C4 | Eval harness + safety and injection cases | 3 | ? | Not started | — |
@@ -63,7 +63,7 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 - [ ] **A / B:** `backend/app/schemas.py` is now the shared contract for later steps; `calendar_ics.py` imports its `FreeSlot` (Ben approved 2026-11-24).
 - [ ] **B:** Possible bug from reading the code (not run): `find_free_slots` does not expand repeating events (`RRULE`), so later occurrences may look free.
 - [x] **B / C:** Refusal format for `/api/plan` — settled in C3 (2026-11-26): HTTP 400 `{"error": "Request refused", "detail": <message>}`, see DESIGN.md §5.
-- [ ] **B (B2 / B4):** Use `guardrails.ics_is_too_large()` in `POST /api/calendar` (200 KB), `guardrails.health_flags()` on the profile's injuries and health notes to add a "check with a doctor or physical therapist" note in the plan, and the 400 refusal format above. C3 stays In progress until this is wired.
+- [x] **B (B2 / B4):** (done in B2, 2026-11-26) Use `guardrails.ics_is_too_large()` in `POST /api/calendar` (200 KB), `guardrails.health_flags()` on the profile's injuries and health notes to add a "check with a doctor or physical therapist" note in the plan, and the 400 refusal format above. C3 stays In progress until this is wired.
 - [ ] **C3 / C4:** The injection screen is a pattern list (no model call). Its known limits are listed in `backend/tests/test_guardrails.py` (ATTACKS / BENIGN). The final round of regex fixes was self-checked with tests only, not by a separate reviewer. Saved-profile text sent with `PUT /api/profile` is not screened.
 - [ ] **A / B:** Use `call_model(feature, messages, response_model)` from `backend/app/llm.py`; catch `LLMError`.
 - [ ] **Ben:** `call_model()` sends `store=False` so OpenAI does not keep responses (profiles can hold health data). Agent choice, not yet confirmed.
@@ -83,11 +83,13 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
   - `llm.py`: if `logs/usage.jsonl` cannot be written, the paid result is lost. Raise `LLMError`, or warn and return the result? (It also reaches the user as a plain-text 500.)
   - `llm.py`: output cut off mid-JSON is reported as "did not match" instead of "incomplete".
   - `docs/DESIGN.md`: §6 still says "Draft"; §9 and §11 do not mention the cache key with schema, or `null` tokens and cost.
-- [ ] **B:** `Session` times from the model may carry a time zone while `FreeSlot` times do not; comparing them fails. Agree before B2/B3.
+- [x] **B:** `Session` times from the model may carry a time zone while `FreeSlot` times do not — answered 2026-11-26 (Ben): all local with no time zone; `plan.py` converts any model time zone to local.
 - [x] **Ben:** Is it OK that this session ran in auto mode? — answered 2026-11-26: new per-person rule in `CLAUDE.md` / `GEMINI.md`; Ben approved auto mode for himself.
 - [ ] **Jadon, Ethan:** If your agent runs in an auto / YOLO mode, it will now ask you once whether that is OK (`CLAUDE.md` / `GEMINI.md`). Your answer is recorded under your name in the Decisions log.
 - [ ] **Ben:** Commits from Ben's machine show the author as "MainPC". Change the git name?
-- [ ] **B / C:** Wire `POST /api/calendar` endpoint once FastAPI scaffold in C0 is merged.
+- [x] **B / C:** Wire `POST /api/calendar` endpoint — done in B2 (2026-11-26), in `plan.py`.
+- [ ] **Ben (B2):** If `POST /api/plan` gets a `week_of` that differs from the uploaded calendar's first day, it refuses with 400 ("Upload a calendar for that week"). Agent choice — confirm or change.
+- [ ] **B3:** The plan prompt asks the model for "common exercise names"; replace that with the `exercises.json` allow-list and add the output checks + one retry. The 200 KB `.ics` limit is checked after the upload is received (fine for the local demo).
 - [ ] **A / team:** Do we attempt the voice-input stretch goal? Decide by the end of Phase 2.
 - [x] **C:** (both added; `httpx` approved by Ben 2026-11-24) Add `pytest` and `httpx` to `backend/requirements.txt` so `/api/health` (and later steps) get automated tests with FastAPI's `TestClient`? Needs approval (new dependencies).
 - [ ] **Team:** Does the instructor need an addendum to the proposal for the scope change (meal photos and diet tracking deferred)?
@@ -96,6 +98,11 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 
 | Date | Decision | Decided by |
 |---|---|---|
+| 2026-11-26 | Work on B2 this session (B furthest behind); keep git name "Anozin" | Ben |
+| 2026-11-26 | B2: add `python-multipart` (`>=0.0.9,<1`, bounds chosen by agent) for the `.ics` form upload | Ben |
+| 2026-11-26 | B2: all plan and slot times are local with no time zone; a time zone from the model is converted to local and dropped (answers the B open question on time zones) | Ben |
+| 2026-11-26 | B2: no calendar, no free time, missing core profile fields, or injection-like saved-profile text → 400 refusal, no model call; `health_flags()` on injuries + health notes adds a fixed doctor/PT note in Python and is passed to the model | Ben |
+| 2026-11-26 | B2 review fixes: profile data sent as a user message (not system); `name` and diet fields not sent to the model; a new calendar upload clears the current plan; upload handler made synchronous | Ben |
 | 2026-11-26 | Rule change (`CLAUDE.md`, `GEMINI.md`, `HOW_TO_START.md`): auto / auto-accept / YOLO modes are allowed per person once that person approves it when asked at `/start`; recorded here by name; AGENTS.md approvals in chat still apply | Ben |
 | 2026-11-26 | Auto mode approved for Ben's own sessions | Ben |
 | 2026-11-26 | Switch from workstream A to C for step C3 this session | Ben |

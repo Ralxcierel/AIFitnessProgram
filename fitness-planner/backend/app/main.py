@@ -5,12 +5,13 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
-from . import profile, workout_log
+from . import plan, profile, workout_log
 from .llm import LLMError
 
 app = FastAPI(title="Fitness Planner API")
 app.include_router(profile.router)
 app.include_router(workout_log.router)
+app.include_router(plan.router)
 
 
 @app.exception_handler(RequestValidationError)
