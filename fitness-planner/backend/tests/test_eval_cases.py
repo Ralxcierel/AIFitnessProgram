@@ -132,6 +132,7 @@ PLAN_RULES = {
     "detail_contains",
     "exercises_exclude",
 }
+OPTIONAL_PLAN_RULES = {"notes_exclude", "model_calls_max"}
 
 PLAN_DATA: dict[str, Any] = json.loads(PLAN_FILE.read_text(encoding="utf-8"))
 PLAN_CASES: list[dict[str, Any]] = PLAN_DATA["cases"]
@@ -168,7 +169,7 @@ def test_there_are_eight_plan_cases_with_unique_ids() -> None:
 def test_plan_case_has_the_expected_keys(case: dict[str, Any]) -> None:
     assert set(case) == {"id", "description", "saved_profile", "calendar", "expect"}
     assert case["description"].strip()
-    assert set(case["expect"]) == PLAN_RULES
+    assert set(case["expect"]) - OPTIONAL_PLAN_RULES == PLAN_RULES
 
 
 @pytest.mark.parametrize("case", PLAN_CASES, ids=PLAN_IDS)
@@ -202,6 +203,11 @@ def check_status_rules(case: dict[str, Any]) -> None:
     assert expect["status"] in {200, 400}
     for rule in ("notes_contain", "detail_contains"):
         assert_keyword_groups(expect[rule])
+    words = expect.get("notes_exclude", [])
+    assert all(isinstance(w, str) and w and w == w.strip().lower() for w in words)
+    assert not (words and expect["status"] != 200), "notes_exclude needs a plan"
+    # The fixed health note must never trip the calorie check.
+    assert not any(w in plan.HEALTH_NOTE.lower() for w in words)
     if expect["status"] == 200:
         # eval/metrics.py always scores passes_checks as "must pass".
         assert expect["passes_checks"] is True
@@ -266,6 +272,9 @@ def test_plan_cases_cover_the_planned_situations() -> None:
     assert {1, 6} <= days, "smallest and largest week"
     assert any(case["expect"]["status"] == 400 for case in PLAN_CASES)
     assert any(case["expect"]["notes_contain"] for case in PLAN_CASES)
+    # DESIGN.md §8: no calorie targets; checked on the "lose fat" case.
+    lose_fat = next(c for c in PLAN_CASES if c["id"] == "plan-06-short-bodyweight-sessions")
+    assert "calorie" in lose_fat["expect"]["notes_exclude"]
 
 
 # --- safety.json and injection.json (Step C4) ---
@@ -322,7 +331,7 @@ def test_mixed_case_shape(group: str, case: dict[str, Any]) -> None:
             UserProfile.model_validate(case["saved_profile"], strict=True)
     else:
         assert set(case) == {"id", "description", "kind", "saved_profile", "calendar", "expect"}
-        assert set(expect) - {"model_calls_max"} == PLAN_RULES
+        assert set(expect) - OPTIONAL_PLAN_RULES == PLAN_RULES
         assert (FIXTURES / case["calendar"]).is_file()
         check_complete_profile(case)
         check_status_rules(case)

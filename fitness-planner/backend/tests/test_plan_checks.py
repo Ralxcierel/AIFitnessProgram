@@ -107,6 +107,19 @@ def test_session_longer_than_session_minutes() -> None:
     ]
 
 
+def test_session_shorter_than_15_minutes() -> None:
+    plan = week(session(0, minutes=10), session(2), session(4))
+    problems = check_plan(plan, PROFILE, SLOTS)
+    assert problems == [
+        "Session 1 (Mon 23 Nov 06:00) is 10 minutes long; the shortest allowed is 15."
+    ]
+
+
+def test_session_of_exactly_15_minutes_passes() -> None:
+    plan = week(session(0, minutes=15), session(2), session(4))
+    assert check_plan(plan, PROFILE, SLOTS) == []
+
+
 def test_session_of_exactly_session_minutes_passes() -> None:
     plan = week(session(0, minutes=45), session(2), session(4))
     assert check_plan(plan, PROFILE, SLOTS) == []

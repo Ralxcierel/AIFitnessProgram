@@ -65,8 +65,8 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 - [ ] **A / C:** The profile chat itself does not screen the *saved* profile it sends to the model (only `/api/plan` does). Add an eval case or a screen if the team wants it covered.
 - [ ] **C5:** Add a `baseline` mode to `run_eval.py` (naive single prompt, same cases, scoring rules in `eval/cases/README.md`). Reports are named `<time>-<mode>`.
 - [ ] **Ben:** The first live eval: run 2–3 cases with `--only ... --live` once the key exists (about 3–5 calls), then the rest (25 cases: about 31 calls, at most 38).
-- [ ] **Ben (B5):** §8 bans calorie and weight-loss targets, but nothing checks it. Add a `notes_exclude` rule (e.g. "calorie") to the plan case format and use it on `plan-06` ("lose fat")?
-- [ ] **B:** The too-few-free-days refusal says "only 1 days" (plural bug in `plan.py`). `plan-08` matches "free time on only 1", so fixing it will not break the case.
+- [x] **Ben (B5):** §8 calorie check — answered 2026-11-26: optional `notes_exclude` rule added, used on `plan-06` and `safety-03`.
+- [x] **B:** (fixed 2026-11-26: "only 1 day") The too-few-free-days refusal said "only 1 days" (plural bug in `plan.py`). `plan-08` matches "free time on only 1", so fixing it will not break the case.
 - [ ] **Team / C5:** There are 9 profile cases, not 8 (a "vague answers" case was added), so the eval has 25 cases instead of DESIGN.md §10's 24. Update §10's table when C5 writes up the results.
 - [ ] **A / B3:** Workout log exercise names are free text (1–100 characters). Once B3's `exercises.json` exists, should the log page suggest or require names from it?
 - [x] **C3:** The profile page blocks chat messages over 2,000 characters in the browser only — the back end now enforces it too (C3, 2026-11-26).
@@ -100,13 +100,13 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 - [ ] **Jadon, Ethan:** If your agent runs in an auto / YOLO mode, it will now ask you once whether that is OK (`CLAUDE.md` / `GEMINI.md`). Your answer is recorded under your name in the Decisions log.
 - [ ] **Ben:** Commits from Ben's machine show the author as "MainPC". Change the git name?
 - [x] **B / C:** Wire `POST /api/calendar` endpoint — done in B2 (2026-11-26), in `plan.py`.
-- [ ] **Ben (B2):** If `POST /api/plan` gets a `week_of` that differs from the uploaded calendar's first day, it refuses with 400 ("Upload a calendar for that week"). Agent choice — confirm or change.
+- [x] **Ben (B2):** (answered 2026-11-26: keep it) If `POST /api/plan` gets a `week_of` that differs from the uploaded calendar's first day, it refuses with 400 ("Upload a calendar for that week"). Agent choice — confirm or change.
 - [ ] **B / C:** The 200 KB `.ics` limit is checked after the upload is received (fine for the local demo).
-- [ ] **Ben (B3):** Add a minimum session length (e.g. 15 minutes)? Today a 1-minute session passes the checks.
-- [ ] **Ben / C5 (B3):** Label the retry call `"plan_retry"` in the usage log so C5 can count retries? Both calls use `"plan"` today.
+- [x] **Ben (B3):** Minimum session length — answered 2026-11-26: 15 minutes, checked in `plan_checks.py` and stated in the plan prompt.
+- [x] **Ben / C5 (B3):** Retry label — answered 2026-11-26: the retry call uses feature `"plan_retry"`. **C5:** count it with `"plan"` for plan cost, and separately to show how often retries happen.
 - [ ] **A:** `frontend/src/app/core/error-text.ts` now holds the shared `errorText()` helper (B4). The profile and log pages still have their own copies; switch them over when convenient.
 - [ ] **A / B (contract):** `api.types.ts` now has `CalendarResponse`; keep it in step with `CalendarResponse` in `backend/app/plan.py`.
-- [ ] **Ben (B2/B4):** "Finish your profile first. Still missing: height_cm, weight_kg, …" shows raw field names on the plan page. Use friendly names ("height", "weight")? Small change in `plan.py`.
+- [x] **Ben (B2/B4):** Friendly field names — answered 2026-11-26: `plan.FIELD_NAMES` ("height", "weight", "workout days per week", …) in the "Still missing" message.
 - [ ] **B (B3):** Optional: add a few no-equipment cardio exercises to `exercises.json` (e.g. "March in place").
 - [ ] **A / team:** Do we attempt the voice-input stretch goal? Decide by the end of Phase 2.
 - [x] **C:** (both added; `httpx` approved by Ben 2026-11-24) Add `pytest` and `httpx` to `backend/requirements.txt` so `/api/health` (and later steps) get automated tests with FastAPI's `TestClient`? Needs approval (new dependencies).
@@ -116,6 +116,8 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 
 | Date | Decision | Decided by |
 |---|---|---|
+| 2026-11-26 | Open questions settled as the agent recommended: keep the `week_of` mismatch refusal; minimum session length 15 minutes (`plan_checks.MIN_SESSION_MINUTES`, also in the prompt); retry call labelled `"plan_retry"` in the usage log; plain field names in "Finish your profile first"; "1 day" wording fix; new optional eval rule `notes_exclude` (no calorie or weight-loss targets) on `plan-06` and `safety-03` | Ben |
+| 2026-11-26 | Commit `.claude/launch.json` at the repo top level (Claude Code browser-preview config: `backend` for Windows, `backend-mac-linux`, `frontend`) so teammates can start both servers from the app | Ben |
 | 2026-11-26 | C4b: safety/injection cases carry `"kind": "profile" \| "plan"` and reuse that kind's rules; new rules `reply_excludes` (reply and returned profile text must not contain prompt phrases) and `model_calls_max` (from the usage log); leak markers = headings and distinctive sentences of the profile prompt; `injection-02` scored on no-leak only; main metric for both groups = case-pass rate; listing shows expected and worst-case model calls; new fixture `full.ics` | Ben |
 | 2026-11-26 | Switch to workstream C for C4; split C4 into C4a (harness + scoring for profile/plan cases) and C4b (safety + injection cases) | Ben |
 | 2026-11-26 | C4a: `run_eval.py` lists cases and max model calls by default and calls nothing; `--live` needed; `--only` / `--group`; dev cache on by default (`--no-cache` for the graded run); `.env` via python-dotenv, never printed; one timestamped JSON + Markdown report per run in `eval/results/` (committed; scores, counts and usage only); a failing case does not stop the run | Ben |
@@ -207,7 +209,8 @@ Newest first. Copy the template for each new session.
   - deleted: none
 - **Tests:** `pytest` in `backend/`: 558 passed. `npm test -- --watch=false` in `frontend/`: 80 passed. Production build succeeded. All offline; **no OpenAI calls were made**. `/plan` checked by hand in the browser with a synthetic calendar (upload, re-upload, "Finish your profile first" refusal). `run_eval.py` listing run for real; one attempt to confirm `--live` stops without settings was blocked by the tool's safety check and not retried (the same path is covered by an offline test).
 - **Reviews:** one section reviewer each for B2, B3, B4, B5, C4a, C4b; no high findings; fixes made with Ben's approval each time.
-- **Unfinished or left as-is:** C5 (baseline mode, usage summary) not started; every model-facing part untested live; Ben's open questions below (week refusal, minimum session length, retry label, friendly field names, calorie check); "only 1 days" wording bug; profile and log pages still have their own `errorText()` copy. A local, untracked `.claude/launch.json` (browser-preview config for the two servers) is on Ben's machine; it is not committed.
+- **Unfinished or left as-is:** C5 (baseline mode, usage summary) not started; every model-facing part untested live; profile and log pages still have their own `errorText()` copy. After the wrap-up, Ben's five open questions were settled as recommended (see the Decisions log) and `.claude/launch.json` was committed.
+- **Browser preview for teammates:** in the Claude Code desktop app, the servers in `.claude/launch.json` (repo top level) start the app: `backend` (Windows) or `backend-mac-linux`, plus `frontend`, then open http://localhost:4200. It does not load `.env`; for live model calls start the back end as the README says (`uvicorn --env-file ../.env`).
 - **Pushed:** yes (B2, B3, B4 mid-session; B5, C4 and this wrap-up at the end)
 - **Notes for the next person:** `pip install -r requirements.txt` again (new `python-multipart`). Commit messages with double quotes break in PowerShell; use `git commit -F <file>`. The browser check uploaded a synthetic calendar into Ben's local `backend/data/app.db` (gitignored).
 

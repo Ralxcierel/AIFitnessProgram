@@ -198,6 +198,20 @@ def test_plan_judgement_checks() -> None:
     assert score.constraint_pass  # judgement checks do not affect it
 
 
+def test_plan_notes_exclude_catches_calorie_targets() -> None:
+    case = {**PLAN_CASE, "expect": {**PLAN_CASE["expect"], "notes_exclude": ["calorie", "kg per week"]}}
+    names = metrics.plan_check_names(case["expect"])
+    assert names.index("notes_exclude") == names.index("notes_contain:1") + 1
+    ok = metrics.score_plan(case, 200, plan_body(session(0), session(2)), SLOTS)
+    assert failed(ok) == []
+    bad_notes = ["Ask a doctor first.", "Eat 1500 Calories a day."]
+    bad = metrics.score_plan(
+        case, 200, plan_body(session(0), session(2), notes=bad_notes), SLOTS
+    )
+    assert failed(bad) == ["notes_exclude"]
+    assert bad.constraint_pass  # a judgement check, not a §8 rule check
+
+
 def test_plan_wrong_session_count() -> None:
     score = metrics.score_plan(PLAN_CASE, 200, plan_body(session(0)), SLOTS)
     assert "session_count" in failed(score)

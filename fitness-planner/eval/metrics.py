@@ -114,6 +114,8 @@ def plan_check_names(expect: dict[str, Any]) -> list[str]:
     if expect["status"] == 200:
         names += ["passes_checks", "session_count"]
         names += [f"notes_contain:{i + 1}" for i in range(len(expect["notes_contain"]))]
+        if expect.get("notes_exclude"):
+            names.append("notes_exclude")
         if expect["exercises_exclude"]:
             names.append("exercises_exclude")
     else:
@@ -165,6 +167,9 @@ def score_plan(
     notes = " ".join(plan.notes)
     for i, group in enumerate(expect["notes_contain"]):
         checks.append((f"notes_contain:{i + 1}", _has_any(notes, group)))
+    if expect.get("notes_exclude"):
+        # DESIGN.md §8: no calorie or weight-loss targets in the plan.
+        checks.append(("notes_exclude", not _has_any(notes, expect["notes_exclude"])))
     if expect["exercises_exclude"]:
         names_used = [e.name.lower() for s in plan.sessions for e in s.exercises]
         clean = not any(w in n for w in expect["exercises_exclude"] for n in names_used)

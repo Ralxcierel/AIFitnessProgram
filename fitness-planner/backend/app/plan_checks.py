@@ -15,6 +15,7 @@ from .schemas import FreeSlot, Session, UserProfile, WeeklyPlan
 
 EXERCISES_FILE = Path(__file__).resolve().parent / "data" / "exercises.json"
 MAX_SESSIONS = 6
+MIN_SESSION_MINUTES = 15  # same as the schema's lowest session_minutes
 _MAX_QUOTED = 60  # longest exercise name quoted back in a problem
 
 
@@ -79,11 +80,16 @@ def _count_problems(plan: WeeklyPlan, profile: UserProfile) -> list[str]:
 def _time_problems(
     label: str, session: Session, profile: UserProfile, slots: list[FreeSlot]
 ) -> list[str]:
-    """Start before end, length limit, and fit inside one free slot."""
+    """Start before end, length limits, and fit inside one free slot."""
     if session.end <= session.start:
         return [f"{label} does not end after it starts."]
     problems = []
     minutes = (session.end - session.start).total_seconds() / 60
+    if minutes < MIN_SESSION_MINUTES:
+        problems.append(
+            f"{label} is {minutes:g} minutes long; the shortest allowed is "
+            f"{MIN_SESSION_MINUTES}."
+        )
     if profile.session_minutes is not None and minutes > profile.session_minutes:
         problems.append(
             f"{label} is {minutes:g} minutes long; the most allowed is "

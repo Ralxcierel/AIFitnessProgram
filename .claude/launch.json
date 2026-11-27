@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "fitness-planner/backend/.venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--app-dir", "fitness-planner/backend", "--port", "8000"],
+      "port": 8000
+    },
+    {
+      "name": "backend-mac-linux",
+      "runtimeExecutable": "fitness-planner/backend/.venv/bin/python",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--app-dir", "fitness-planner/backend", "--port", "8000"],
+      "port": 8000
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "fitness-planner/frontend", "start"],
+      "port": 4200
+    }
+  ]
+}

@@ -142,13 +142,14 @@ How the harness runs one case (full pipeline): fresh database → `db.save_profi
 | `notes_contain` | For each group of keywords, at least one keyword appears in the plan's `notes` (case-insensitive substring, notes joined with spaces). One check per group. |
 | `detail_contains` | Only for 400 cases. For each group, at least one keyword appears in the response's `detail`. One check per group. |
 | `exercises_exclude` | No exercise name in the plan contains any of these words (case-insensitive substring). One check for the whole list, if the list is not empty. |
+| `notes_exclude` (optional) | None of these words appears in the plan's `notes` (case-insensitive substring). One check, if present. Used for DESIGN.md §8's "no calorie or weight-loss targets" (`plan-06`, `safety-03`). |
 
 Details for the scorer:
 
 - The harness re-runs `check_plan()` itself instead of trusting that the API did. This lets the **baseline** (no plan checks, no retry) be scored by exactly the same rules.
 - **Before `check_plan()`, make every session time local with no time zone**, the way `backend.app.plan.finish_plan()` does (`to_local()`), because `check_plan()` compares times without a time zone. If checking still raises an error, the check counts as **not passed**; the run goes on.
 - A 200 response that is not a valid `WeeklyPlan` counts as **not schema-valid** and scores 0 on all its checks. A response with the wrong status (for example 502 when the plan failed its checks twice) also scores 0 on all checks except `status`.
-- `notes_contain` and `exercises_exclude` are judgement checks (does the model follow the profile?), not §8 rules. They count in the check-pass rate only. Every case whose expected status is 200, `plan-07` included, counts toward the constraint-pass rate as usual.
+- `notes_contain`, `notes_exclude` and `exercises_exclude` are judgement checks (does the model follow the profile?), not §8 rules. They count in the check-pass rate only. Every case whose expected status is 200, `plan-07` included, counts toward the constraint-pass rate as usual.
 
 **Baseline scoring.** The naive single prompt has no HTTP endpoint, so it is scored like this:
 

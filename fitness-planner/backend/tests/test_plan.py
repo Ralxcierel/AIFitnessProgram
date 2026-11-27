@@ -230,7 +230,26 @@ def test_missing_profile_fields_are_refused_and_listed(
 ) -> None:
     ready(client, PROFILE.model_copy(update={"workout_days": None, "goals": []}))
     detail = refusal(client.post(PLAN_URL))
-    assert detail == "Finish your profile first. Still missing: goals, workout_days."
+    assert detail == "Finish your profile first. Still missing: goals, workout days per week."
+
+
+def test_every_core_field_has_a_plain_name() -> None:
+    from backend.app.profile import CORE_FIELDS
+
+    assert set(plan.FIELD_NAMES) == set(CORE_FIELDS)
+    assert all("_" not in name for name in plan.FIELD_NAMES.values())
+
+
+def test_one_free_day_is_said_in_the_singular(
+    model: FakeModel, client: TestClient
+) -> None:
+    db.save_profile(PROFILE)
+    db.save_free_slots(MONDAY, [FreeSlot(start=datetime(2026, 11, 23, 6), end=datetime(2026, 11, 23, 9))])
+    detail = refusal(client.post(PLAN_URL))
+    assert detail == (
+        "Your calendar has free time on only 1 day this week, but your "
+        "profile asks for 3 workouts."
+    )
     assert model.calls == []
 
 
@@ -384,6 +403,7 @@ def test_bad_plan_gets_one_retry_with_the_problems(
     assert result.status_code == 200
     assert WeeklyPlan.model_validate(result.json()).sessions == model.response.sessions
     assert len(model.calls) == 2
+    assert [call[0] for call in model.calls] == ["plan", "plan_retry"]
     retry = model.calls[1][1]
     assert retry[:2] == model.calls[0][1]  # same prompt and input
     sent_back = WeeklyPlan.model_validate_json(retry[2]["content"])

@@ -72,6 +72,7 @@
         "passes_checks": true,
         "session_count": 3,
         "notes_contain": [["doctor", "physical therapist"]],
+        "notes_exclude": ["calorie", "kcal", "kg per week", "lb per week", "pounds per week"],
         "detail_contains": [],
         "exercises_exclude": []
       }
