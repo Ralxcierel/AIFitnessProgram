@@ -14,7 +14,9 @@ See [`PROGRESS.md`](PROGRESS.md). Design: [`docs/DESIGN.md`](docs/DESIGN.md).
 
 You need Python 3.11 or newer and Node.js 22.22.3+ or 24.15+ (even-numbered LTS versions). Run everything from this folder (`fitness-planner/`).
 
-**1. Settings.** Copy `.env.example` to `.env` and fill it in yourself. Never commit or share `.env`.
+> **First time, or setting up the front end?** Follow the step-by-step guide [`docs/FRONTEND_SETUP.md`](docs/FRONTEND_SETUP.md). It covers every page, the tests and troubleshooting.
+
+**1. Settings.** Copy `.env.example` to `.env` and fill it in yourself. Never commit or share `.env`. Create it even without a key: the back-end command below will not start if `.env` is missing. Until the key arrives, leave `OPENAI_API_KEY=` and `OPENAI_MODEL=` empty, so no model call is attempted.
 
 **2. Back end.**
 

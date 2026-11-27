@@ -20,7 +20,7 @@ Agents: read this at `/start`, update the step status as you finish each step, a
 
 **If there is still no key — Workstream C, step C5 offline:** add a `--mode baseline` to `eval/run_eval.py`: a naive single prompt (same model, profile + raw calendar text, no free-slot preprocessing, no plan checks or retry, no guardrails) scored by the rules already written in `eval/cases/README.md` → "Baseline scoring" (reports are named `<time>-<mode>`). Test it with a fake model like `backend/tests/test_run_eval.py`. Then `summarize_usage.py` for the README cost table (tokens and `cost_usd` can be `null`; cached calls log 0).
 
-*(Setup on a new machine: `pip install -r requirements.txt` in `backend/.venv` — B2 added `python-multipart` — and `npm ci` in `frontend/`.)*
+*(Setup on a new machine, or first time for Jadon and Ethan: follow `docs/FRONTEND_SETUP.md`. It includes `pip install -r requirements.txt` (B2 added `python-multipart`), `npm ci`, and creating `.env` even without a key.)*
 
 ## Status board
 
@@ -97,6 +97,7 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
   - `docs/DESIGN.md`: §6 still says "Draft"; §9 and §11 do not mention the cache key with schema, or `null` tokens and cost.
 - [x] **B:** `Session` times from the model may carry a time zone while `FreeSlot` times do not — answered 2026-11-26 (Ben): all local with no time zone; `plan.py` converts any model time zone to local.
 - [x] **Ben:** Is it OK that this session ran in auto mode? — answered 2026-11-26: new per-person rule in `CLAUDE.md` / `GEMINI.md`; Ben approved auto mode for himself.
+- [ ] **Jadon, Ethan:** Front-end setup is not yet confirmed on your machines. At your next `/start`, follow `docs/FRONTEND_SETUP.md` (about 15 minutes, no key needed): create `.env` with `OPENAI_API_KEY=` and `OPENAI_MODEL=` left empty, install back end and front end, run both, check the four pages, run `npm test -- --watch=false` (expect 80 passed). Note any step that failed or was unclear here, so the guide can be fixed.
 - [ ] **Jadon, Ethan:** If your agent runs in an auto / YOLO mode, it will now ask you once whether that is OK (`CLAUDE.md` / `GEMINI.md`). Your answer is recorded under your name in the Decisions log.
 - [ ] **Ben:** Commits from Ben's machine show the author as "MainPC". Change the git name?
 - [x] **B / C:** Wire `POST /api/calendar` endpoint — done in B2 (2026-11-26), in `plan.py`.

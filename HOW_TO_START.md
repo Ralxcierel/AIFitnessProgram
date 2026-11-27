@@ -9,7 +9,7 @@ You don't need to know the AI rules to work on this project. The agent reads the
 1. **Install the basics** (skip any you already have):
    - Git
    - Python 3.11 or newer
-   - Node.js (LTS version)
+   - Node.js 22.22.3+ or 24.15+ (the LTS download from nodejs.org)
 2. **Install one AI coding tool** and sign in:
    - **Claude Code** — follow the install steps at docs.claude.com (Claude Code section).
    - **Gemini CLI** — in a terminal, run `npm install -g @google/gemini-cli`, then run `gemini` once to sign in.
@@ -20,6 +20,8 @@ You don't need to know the AI rules to work on this project. The agent reads the
    - In the project folder, copy `.env.example` to a new file named `.env`.
    - Open `.env` in a text editor and paste the key the instructor sent, after `OPENAI_API_KEY=`.
    - Never paste the key into an AI chat, a commit, a screenshot, or the team chat.
+
+5. **Set up and run the app once:** follow `fitness-planner/docs/FRONTEND_SETUP.md` step by step (about 15 minutes, no API key needed). It installs the back end and front end and shows you every page in the browser.
 
 ## Every session
 
