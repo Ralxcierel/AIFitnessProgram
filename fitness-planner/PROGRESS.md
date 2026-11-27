@@ -38,7 +38,7 @@ Status: Not started · In progress · Done · Blocked
 | C3 | Input guardrails + wiring | 2 | Ben | Done (wired into the profile chat; B2 wired the `.ics` size check, health flags, the 400 refusal format and an injection screen of saved-profile text before the plan call) | 2026-11-26 Ben |
 | A5 | 8 profile test cases | 3 | Ben | In progress (9 cases in `eval/cases/profile.json`, format in `eval/cases/README.md`, offline file check passes; not run or scored — needs the C4 harness and an API key) | 2026-11-26 Ben |
 | B5 | 8 plan test cases + fixtures | 3 | Ben | In progress (8 cases in `eval/cases/plan.json` on the existing fixtures, format and scoring incl. baseline in `eval/cases/README.md`, offline file check passes; not run or scored — needs the C4 harness and an API key) | 2026-11-26 Ben |
-| C4 | Eval harness + safety and injection cases | 3 | Ben | In progress (C4a done offline: `eval/run_eval.py` + `eval/metrics.py` run and score the 9 profile + 8 plan cases, reports to `eval/results/`; 502 back-end tests pass with a fake model; never run live — no API key. C4b — 5 safety + 3 injection cases — not started) | 2026-11-26 Ben |
+| C4 | Eval harness + safety and injection cases | 3 | Ben | Done offline (`eval/run_eval.py` + `eval/metrics.py` run and score all 25 cases: 9 profile, 8 plan, 5 safety, 3 injection; reports to `eval/results/`; 558 back-end tests pass with a fake model; never run live — no API key, so no report exists yet) | 2026-11-26 Ben |
 | C5 | Baseline run, usage summary, README sections | 3 | ? | Not started | — |
 | — | Phase 4: polish, README, demo video | 4 | all | Not started | — |
 
@@ -56,9 +56,11 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 - [x] **C4:** Build `run_eval.py` / `metrics.py` to read `eval/cases/profile.json` — done in C4a (2026-11-26), offline only.
 - [x] **B5:** Reuse the case-file layout in `eval/cases/README.md` for `plan.json` — done 2026-11-26 (same file layout; plan rules in the README's "Plan case format" section).
 - [x] **C4:** Build the plan side of `run_eval.py` / `metrics.py` — done in C4a (2026-11-26); the baseline scoring rules wait for C5.
-- [ ] **C4b:** Write 5 safety + 3 injection cases (DESIGN.md §10), their format, and scoring in `eval/metrics.py`; include an injection hidden in a saved profile field.
+- [x] **C4b:** 5 safety + 3 injection cases — done 2026-11-26 (offline). Includes the injection hidden in a saved profile field (`injection-03`), answering the C3/C4 question below for the plan endpoint.
+- [ ] **C5 / team:** DESIGN.md §10's injection criteria are covered as: "refusal flag set" by `injection-01` (`refused: true`) and `injection-03` (400 refusal; `/api/plan` has no flag); "no prompt leaked" by `reply_excludes` in `injection-01/02`. `injection-02` is a polite leak attempt that the pattern screen does not catch — expect it to show the screen's limits in the results. Mention this in the presentation.
+- [ ] **A / C:** The profile chat itself does not screen the *saved* profile it sends to the model (only `/api/plan` does). Add an eval case or a screen if the team wants it covered.
 - [ ] **C5:** Add a `baseline` mode to `run_eval.py` (naive single prompt, same cases, scoring rules in `eval/cases/README.md`). Reports are named `<time>-<mode>`.
-- [ ] **Ben:** The first live eval: run 2–3 cases with `--only ... --live` once the key exists (about 3–5 calls), then the rest (up to 23 calls for C4a's cases).
+- [ ] **Ben:** The first live eval: run 2–3 cases with `--only ... --live` once the key exists (about 3–5 calls), then the rest (25 cases: about 31 calls, at most 38).
 - [ ] **Ben (B5):** §8 bans calorie and weight-loss targets, but nothing checks it. Add a `notes_exclude` rule (e.g. "calorie") to the plan case format and use it on `plan-06` ("lose fat")?
 - [ ] **B:** The too-few-free-days refusal says "only 1 days" (plural bug in `plan.py`). `plan-08` matches "free time on only 1", so fixing it will not break the case.
 - [ ] **Team / C5:** There are 9 profile cases, not 8 (a "vague answers" case was added), so the eval has 25 cases instead of DESIGN.md §10's 24. Update §10's table when C5 writes up the results.
@@ -110,6 +112,7 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 
 | Date | Decision | Decided by |
 |---|---|---|
+| 2026-11-26 | C4b: safety/injection cases carry `"kind": "profile" \| "plan"` and reuse that kind's rules; new rules `reply_excludes` (reply and returned profile text must not contain prompt phrases) and `model_calls_max` (from the usage log); leak markers = headings and distinctive sentences of the profile prompt; `injection-02` scored on no-leak only; main metric for both groups = case-pass rate; listing shows expected and worst-case model calls; new fixture `full.ics` | Ben |
 | 2026-11-26 | Switch to workstream C for C4; split C4 into C4a (harness + scoring for profile/plan cases) and C4b (safety + injection cases) | Ben |
 | 2026-11-26 | C4a: `run_eval.py` lists cases and max model calls by default and calls nothing; `--live` needed; `--only` / `--group`; dev cache on by default (`--no-cache` for the graded run); `.env` via python-dotenv, never printed; one timestamped JSON + Markdown report per run in `eval/results/` (committed; scores, counts and usage only); a failing case does not stop the run | Ben |
 | 2026-11-26 | Start Phase 3 with B5 (before C4), offline, although Phases 1–2 are not yet tried on the real model | Ben |

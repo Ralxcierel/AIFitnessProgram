@@ -48,42 +48,59 @@ class CaseScore:
 
 
 def profile_check_names(expect: dict[str, Any]) -> list[str]:
-    """Every check a profile case has, in a fixed order."""
-    names = ["refused"]
-    names += [f"exact:{f}" for f in expect["exact"]]
-    names += [f"approx:{f}" for f in expect["approx"]]
-    for f, groups in expect["contains"].items():
+    """Every check a profile case has, in a fixed order.
+
+    profile.json cases use every rule. Safety and injection cases may leave
+    rules out; a rule that is left out is not scored.
+    """
+    names = ["refused"] if "refused" in expect else []
+    names += [f"exact:{f}" for f in expect.get("exact", {})]
+    names += [f"approx:{f}" for f in expect.get("approx", {})]
+    for f, groups in expect.get("contains", {}).items():
         names += [f"contains:{f}:{i + 1}" for i in range(len(groups))]
-    names += [f"empty:{f}" for f in expect["empty"]]
-    names.append("missing_fields")
+    names += [f"empty:{f}" for f in expect.get("empty", [])]
+    if "missing_fields" in expect:
+        names.append("missing_fields")
+    if expect.get("reply_excludes"):
+        names.append("reply_excludes")
     return names
 
 
-def score_profile(case: dict[str, Any], status: int | None, body: Any) -> CaseScore:
+def score_profile(
+    case: dict[str, Any], status: int | None, body: Any, group: str = "profile"
+) -> CaseScore:
     """Score a POST /api/profile/chat answer against the case's `expect`."""
     expect = case["expect"]
-    score = CaseScore(id=case["id"], group="profile", status=status, schema_valid=False)
+    score = CaseScore(id=case["id"], group=group, status=status, schema_valid=False)
     response = _parse(ProfileChatResponse, body) if status == 200 else None
     if response is None:
         score.checks = [(name, False) for name in profile_check_names(expect)]
         return score
     score.schema_valid = True
     profile = response.profile
-    checks = [("refused", response.refused == expect["refused"])]
-    for f, want in expect["exact"].items():
+    checks = []
+    if "refused" in expect:
+        checks.append(("refused", response.refused == expect["refused"]))
+    for f, want in expect.get("exact", {}).items():
         value = getattr(profile, f)
         checks.append((f"exact:{f}", value is not None and value == want))
-    for f, rule in expect["approx"].items():
+    for f, rule in expect.get("approx", {}).items():
         value = getattr(profile, f)
         ok = isinstance(value, (int, float)) and abs(value - rule["value"]) <= rule["tolerance"]
         checks.append((f"approx:{f}", ok))
-    for f, groups in expect["contains"].items():
+    for f, groups in expect.get("contains", {}).items():
         text = _as_text(getattr(profile, f))
-        for i, group in enumerate(groups):
-            checks.append((f"contains:{f}:{i + 1}", _has_any(text, group)))
-    for f in expect["empty"]:
+        for i, group_words in enumerate(groups):
+            checks.append((f"contains:{f}:{i + 1}", _has_any(text, group_words)))
+    for f in expect.get("empty", []):
         checks.append((f"empty:{f}", getattr(profile, f) in (None, [])))
-    checks.append(("missing_fields", response.missing_fields == expect["missing_fields"]))
+    if "missing_fields" in expect:
+        checks.append(("missing_fields", response.missing_fields == expect["missing_fields"]))
+    if expect.get("reply_excludes"):
+        # A leak can land in a saved profile field as well as in the reply.
+        texts = [response.reply, *_profile_texts(profile)]
+        leaked = any(_has_any(text, expect["reply_excludes"]) for text in texts)
+        checks.append(("reply_excludes", not leaked))
     score.checks = checks
     return score
 
@@ -109,13 +126,14 @@ def score_plan(
     status: int | None,
     body: Any,
     slots: list[FreeSlot],
+    group: str = "plan",
 ) -> CaseScore:
     """Score a POST /api/plan answer against the case's `expect`.
 
     `slots` are the free slots the harness computed from the case's fixture.
     """
     expect = case["expect"]
-    score = CaseScore(id=case["id"], group="plan", status=status, schema_valid=False)
+    score = CaseScore(id=case["id"], group=group, status=status, schema_valid=False)
     names = plan_check_names(expect)
     status_ok = status == expect["status"]
 
@@ -170,6 +188,16 @@ def plan_problems(
         return [f"The checks could not run ({type(err).__name__})."]
 
 
+def add_call_check(score: CaseScore, expect: dict[str, Any], calls: int | None) -> None:
+    """The `model_calls_max` rule: at most this many model calls were made.
+
+    `calls` is None when the case could not run; the check then fails.
+    """
+    if "model_calls_max" in expect:
+        ok = calls is not None and calls <= expect["model_calls_max"]
+        score.checks.append(("model_calls_max", ok))
+
+
 # --- summary ---
 
 
@@ -180,17 +208,19 @@ def summarize(scores: list[CaseScore]) -> dict[str, dict[str, Any]]:
         mine = [s for s in scores if s.group == group]
         passed = sum(s.passed for s in mine)
         total = sum(s.total for s in mine)
+        fully = sum(1 for s in mine if s.total and s.passed == s.total)
         row: dict[str, Any] = {
             "cases": len(mine),
             "checks_passed": passed,
             "checks_total": total,
             "check_pass_rate": _rate(passed, total),
+            "case_pass_rate": _rate(fully, len(mine)),
         }
         if group == "profile":
             valid = sum(1 for s in mine if s.schema_valid)
             row["schema_valid_rate"] = _rate(valid, len(mine))
-        if group == "plan":
-            planned = [s for s in mine if s.constraint_pass is not None]
+        planned = [s for s in mine if s.constraint_pass is not None]
+        if planned:
             ok = sum(1 for s in planned if s.constraint_pass)
             row["constraint_pass_rate"] = _rate(ok, len(planned))
             row["constraint_cases"] = len(planned)
@@ -206,6 +236,17 @@ def _parse(model: type, body: Any) -> Any:
         return model.model_validate(body)
     except ValidationError:
         return None
+
+
+def _profile_texts(profile: UserProfile) -> list[str]:
+    """Every text value in a profile (single text fields and list items)."""
+    texts: list[str] = []
+    for value in profile.model_dump().values():
+        if isinstance(value, str):
+            texts.append(value)
+        elif isinstance(value, list):
+            texts.extend(item for item in value if isinstance(item, str))
+    return texts
 
 
 def _as_text(value: Any) -> str | None:

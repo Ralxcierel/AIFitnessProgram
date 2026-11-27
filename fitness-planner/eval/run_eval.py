@@ -41,7 +41,12 @@ CASES_DIR = PROJECT_ROOT / "eval" / "cases"
 FIXTURES_DIR = PROJECT_ROOT / "eval" / "fixtures"
 RESULTS_DIR = PROJECT_ROOT / "eval" / "results"
 ENV_FILE = PROJECT_ROOT / ".env"
-GROUPS = ("profile", "plan")
+GROUPS = ("profile", "plan", "safety", "injection")
+
+
+def case_kind(group: str, case: dict[str, Any]) -> str:
+    """"profile" or "plan": safety and injection cases name their kind."""
+    return case.get("kind", group)
 
 
 # --- loading cases ---
@@ -70,10 +75,20 @@ def select_cases(
 
 
 def max_calls(group: str, case: dict[str, Any]) -> int:
-    """The most model calls a case can make in the pipeline."""
-    if group == "plan":
-        return 2 if case["expect"]["status"] == 200 else 0  # one retry; refusals: none
-    return 1
+    """Worst case: the most model calls a case can make, even if a guardrail fails.
+
+    A plan request makes at most 2 (one retry), a profile chat turn 1.
+    """
+    return 2 if case_kind(group, case) == "plan" else 1
+
+
+def expected_calls(group: str, case: dict[str, Any]) -> int:
+    """The most model calls a case makes when every guardrail works."""
+    expect = case["expect"]
+    most = max_calls(group, case)
+    if case_kind(group, case) == "plan" and expect["status"] != 200:
+        most = 0  # refused before the model
+    return min(most, expect.get("model_calls_max", most))
 
 
 # --- running one case ---
@@ -101,18 +116,20 @@ def response_parts(result: Any) -> tuple[int, Any]:
         return result.status_code, None
 
 
-def run_profile_case(client: TestClient, case: dict[str, Any]) -> metrics.CaseScore:
+def run_profile_case(
+    client: TestClient, case: dict[str, Any], group: str = "profile"
+) -> metrics.CaseScore:
     with isolated(None):
         if case["saved_profile"] is not None:
             db.save_profile(UserProfile.model_validate(case["saved_profile"]))
         status, body = response_parts(
             client.post("/api/profile/chat", json={"messages": case["messages"]})
         )
-    return metrics.score_profile(case, status, body)
+    return metrics.score_profile(case, status, body, group)
 
 
 def run_plan_case(
-    client: TestClient, case: dict[str, Any], week_of: date
+    client: TestClient, case: dict[str, Any], week_of: date, group: str = "plan"
 ) -> metrics.CaseScore:
     fixture = (FIXTURES_DIR / case["calendar"]).read_bytes()
     slots: list[FreeSlot] = find_free_slots(fixture, start_date=week_of)
@@ -123,7 +140,7 @@ def run_plan_case(
         if upload.status_code != 200:
             raise RuntimeError(f"calendar upload failed with {upload.status_code}")
         status, body = response_parts(client.post("/api/plan"))
-    return metrics.score_plan(case, status, body, slots)
+    return metrics.score_plan(case, status, body, slots, group)
 
 
 def run_case(
@@ -133,13 +150,16 @@ def run_case(
     lines_before = _usage_line_count()
     error = None
     try:
-        if group == "profile":
-            score = run_profile_case(client, case)
+        if case_kind(group, case) == "profile":
+            score = run_profile_case(client, case, group)
         else:
-            score = run_plan_case(client, case, date.fromisoformat(data["week_of"]))
+            week_of = date.fromisoformat(data["week_of"])
+            score = run_plan_case(client, case, week_of, group)
     except Exception as err:  # noqa: BLE001 - one broken case must not stop the run
         error = type(err).__name__
         score = _failed_score(group, case)
+    usage = usage_since(lines_before)
+    metrics.add_call_check(score, case["expect"], None if error else usage["calls"])
     return {
         "id": case["id"],
         "group": group,
@@ -152,21 +172,22 @@ def run_case(
         # Only the count: problem texts can quote model-written exercise names.
         "plan_problems": len(score.problems),
         "error": error,
-        "usage": usage_since(lines_before),
+        "usage": usage,
         "_score": score,
     }
 
 
 def _failed_score(group: str, case: dict[str, Any]) -> metrics.CaseScore:
-    """A case that could not run: every check fails."""
+    """A case that could not run: every check fails (model_calls_max is added later)."""
+    kind = case_kind(group, case)
     names = (
         metrics.profile_check_names(case["expect"])
-        if group == "profile"
+        if kind == "profile"
         else metrics.plan_check_names(case["expect"])
     )
     score = metrics.CaseScore(id=case["id"], group=group, status=None, schema_valid=False)
     score.checks = [(name, False) for name in names]
-    if group == "plan" and case["expect"]["status"] == 200:
+    if kind == "plan" and case["expect"]["status"] == 200:
         score.constraint_pass = False
     return score
 
@@ -254,14 +275,14 @@ def markdown_report(report: dict[str, Any]) -> str:
         f"Model: `{run['model']}` · cache: {'on' if run['cache'] else 'off'} · "
         f"cases: {len(report['cases'])}",
         "",
-        "| Group | Cases | Schema-valid | Constraint-pass | Check-pass |",
-        "|---|---|---|---|---|",
+        "| Group | Cases | Schema-valid | Constraint-pass | Case-pass | Check-pass |",
+        "|---|---|---|---|---|---|",
     ]
     for group, row in report["summary"].items():
         lines.append(
             f"| {group} | {row['cases']} | {_pct(row.get('schema_valid_rate'))} | "
-            f"{_pct(row.get('constraint_pass_rate'))} | {_pct(row['check_pass_rate'])} "
-            f"({row['checks_passed']}/{row['checks_total']}) |"
+            f"{_pct(row.get('constraint_pass_rate'))} | {_pct(row['case_pass_rate'])} | "
+            f"{_pct(row['check_pass_rate'])} ({row['checks_passed']}/{row['checks_total']}) |"
         )
     lines += [
         "",
@@ -278,8 +299,9 @@ def markdown_report(report: dict[str, Any]) -> str:
     lines += [
         "",
         "Profile cases: a missed core field costs two checks (its `empty` or value "
-        "check and `missing_fields`). Plan constraint-pass counts only cases that "
-        "expect a plan (HTTP 200).",
+        "check and `missing_fields`). Constraint-pass counts only plan-kind cases "
+        "that expect a plan (HTTP 200). Case-pass = share of cases that pass every "
+        "check (for injection: attacks handled).",
     ]
     return "\n".join(lines) + "\n"
 
@@ -310,11 +332,18 @@ def main(
     groups = GROUPS if args.group == "all" else (args.group,)
     chosen = select_cases(groups, args.only)
     calls = sum(max_calls(group, case) for group, case, _ in chosen)
+    expected = sum(expected_calls(group, case) for group, case, _ in chosen)
 
     if not args.live:
         for group, case, _ in chosen:
-            print(f"{group:8} {case['id']}  (up to {max_calls(group, case)} model calls)")
-        print(f"\n{len(chosen)} cases, up to {calls} model calls. Nothing was run.")
+            print(
+                f"{group:9} {case['id']}  (expected {expected_calls(group, case)}, "
+                f"at most {max_calls(group, case)} model calls)"
+            )
+        print(
+            f"\n{len(chosen)} cases, up to {calls} model calls "
+            f"(up to {expected} if every guardrail works). Nothing was run."
+        )
         print("Add --live to call the model (it costs money).")
         return 0
 

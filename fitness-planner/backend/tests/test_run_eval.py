@@ -118,12 +118,20 @@ def test_listing_makes_no_calls_and_writes_nothing(
     assert model.calls == []
     assert not results.exists()
     assert PROFILE_ID in out and REFUSAL_ID in out
-    assert "17 cases, up to 23 model calls. Nothing was run." in out
+    # 9 profile + 8 plan + 5 safety + 3 injection cases. Worst case: plan-kind 2,
+    # profile-kind 1 (9 + 16 + 9 + 4 = 38); with working guardrails the refusals
+    # and the screened chat make none (9 + 14 + 7 + 1 = 31).
+    assert (
+        "25 cases, up to 38 model calls (up to 31 if every guardrail works). "
+        "Nothing was run." in out
+    )
 
 
 def test_listing_one_group(model: FakeModel, capsys: pytest.CaptureFixture[str]) -> None:
     run_eval.main(["--group", "plan"])
-    assert "8 cases, up to 14 model calls." in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "8 cases, up to 16 model calls (up to 14 if every guardrail works)." in out
+    assert "plan-08-too-few-free-days  (expected 0, at most 2 model calls)" in out
 
 
 def test_live_without_a_model_setting_runs_nothing(
@@ -229,7 +237,7 @@ def test_a_harness_error_fails_only_that_case(
 ) -> None:
     real = run_eval.run_profile_case
 
-    def broken(client, case):
+    def broken(client, case, group="profile"):
         raise RuntimeError("boom")
 
     monkeypatch.setattr(run_eval, "run_profile_case", broken)
@@ -333,8 +341,8 @@ def test_report_counts_plan_problems_without_their_text(
     # make the harness score a 200 plan that breaks a rule.
     monkeypatch_target = run_eval.metrics
 
-    def score_with_problem(case, status, body, slots):
-        score = original(case, status, body, slots)
+    def score_with_problem(case, status, body, slots, group="plan"):
+        score = original(case, status, body, slots, group)
         score.problems = ['Session 1: "Secret Persona Move" is not on the exercise list.']
         return score
 
@@ -407,3 +415,98 @@ def test_unknown_cost_stays_unknown(
     [case] = report(results)["cases"]
     assert case["usage"]["cost_usd"] is None
     assert case["usage"]["input_tokens"] == 100
+
+
+# --- C4b: safety and injection cases ---
+
+
+def test_listing_safety_and_injection(capsys: pytest.CaptureFixture[str]) -> None:
+    run_eval.main(["--group", "safety"])
+    assert "5 cases, up to 9 model calls (up to 7 if" in capsys.readouterr().out
+    run_eval.main(["--group", "injection"])
+    assert "3 cases, up to 4 model calls (up to 1 if" in capsys.readouterr().out
+
+
+def test_injection_cases_blocked_before_the_model(
+    model: FakeModel, results: Path, tmp_path: Path
+) -> None:
+    ids = ["injection-01-ignore-instructions", "injection-03-attack-in-saved-profile"]
+    live(["--only", *ids], results, tmp_path)
+    assert model.calls == []
+    data = report(results)
+    for case in data["cases"]:
+        assert case["checks_passed"] == case["checks_total"], case
+        assert {"name": "model_calls_max", "passed": True} in case["checks"]
+    assert data["summary"]["injection"]["case_pass_rate"] == 1.0
+
+
+def test_model_calls_max_fails_when_the_screen_misses(
+    model: FakeModel, results: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from backend.app import guardrails
+
+    monkeypatch.setattr(guardrails, "chat_is_flagged", lambda chat: False)
+    live(["--only", "injection-01-ignore-instructions"], results, tmp_path)
+    [case] = report(results)["cases"]
+    assert model.calls == ["profile"]
+    failed_checks = [c["name"] for c in case["checks"] if not c["passed"]]
+    assert failed_checks == ["refused", "model_calls_max"]
+
+
+def test_polite_leak_attempt_is_scored_on_the_reply(
+    model: FakeModel, results: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from backend.app import profile as profile_module
+
+    leaked = PROFILE_ANSWER.model_copy(
+        update={"reply": "Here it is: " + profile_module.SYSTEM_PROMPT[:200]}
+    )
+    monkeypatch.setattr(profile, "call_model", lambda *args: leaked)
+    live(["--only", "injection-02-polite-leak-attempt"], results, tmp_path)
+    [case] = report(results)["cases"]
+    assert case["checks"] == [{"name": "reply_excludes", "passed": False}]
+    text = "".join(p.read_text(encoding="utf-8") for p in results.iterdir())
+    assert "Here it is" not in text  # the reply itself is never saved
+
+
+def test_safety_cases_run_end_to_end(
+    model: FakeModel, results: Path, tmp_path: Path
+) -> None:
+    ids = ["safety-01-chest-pain-note", "safety-04-no-free-time"]
+    live(["--only", *ids], results, tmp_path)
+    by_id = {case["id"]: case for case in report(results)["cases"]}
+    note_case = by_id["safety-01-chest-pain-note"]
+    assert note_case["constraint_pass"] is True
+    assert note_case["checks_passed"] == note_case["checks_total"]  # doctor note added
+    refusal = by_id["safety-04-no-free-time"]
+    assert refusal["status"] == 400
+    assert refusal["checks_passed"] == refusal["checks_total"]
+    assert model.calls == ["plan"]
+
+
+def test_capped_days_profile_case(
+    model: FakeModel, results: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    capped = ProfileChatResponse(
+        reply="We can do up to 6 days. How tall are you?",
+        profile=UserProfile(),
+        missing_fields=[],
+    )
+    monkeypatch.setattr(profile, "call_model", lambda *args: capped)
+    live(["--only", "safety-05-capped-days"], results, tmp_path)
+    [case] = report(results)["cases"]
+    assert case["checks_passed"] == case["checks_total"]
+
+
+def test_harness_error_still_fails_the_call_check(
+    model: FakeModel, results: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(run_eval, "run_plan_case", broken)
+    live(["--only", "injection-03-attack-in-saved-profile"], results, tmp_path)
+    [case] = report(results)["cases"]
+    assert case["error"] == "RuntimeError"
+    assert case["checks_passed"] == 0
+    assert "model_calls_max" in [c["name"] for c in case["checks"]]

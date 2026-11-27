@@ -173,6 +173,11 @@ def test_plan_case_has_the_expected_keys(case: dict[str, Any]) -> None:
 
 @pytest.mark.parametrize("case", PLAN_CASES, ids=PLAN_IDS)
 def test_plan_saved_profile_is_complete_and_valid(case: dict[str, Any]) -> None:
+    check_complete_profile(case)
+
+
+def check_complete_profile(case: dict[str, Any]) -> None:
+    """Shared with the plan-kind safety and injection cases."""
     saved = case["saved_profile"]
     assert set(saved) <= set(UserProfile.model_fields), "misspelled field name"
     profile = UserProfile.model_validate(saved, strict=True)
@@ -187,6 +192,11 @@ def test_plan_calendar_is_a_fixture(case: dict[str, Any]) -> None:
 
 @pytest.mark.parametrize("case", PLAN_CASES, ids=PLAN_IDS)
 def test_plan_expectations_fit_the_status(case: dict[str, Any]) -> None:
+    check_status_rules(case)
+
+
+def check_status_rules(case: dict[str, Any]) -> None:
+    """Shared with the plan-kind safety and injection cases."""
     expect = case["expect"]
     workout_days = case["saved_profile"]["workout_days"]
     assert expect["status"] in {200, 400}
@@ -230,6 +240,10 @@ def test_excluded_words_leave_enough_exercises(case: dict[str, Any]) -> None:
 
 @pytest.mark.parametrize("case", PLAN_CASES, ids=PLAN_IDS)
 def test_expected_notes_come_from_the_health_note(case: dict[str, Any]) -> None:
+    check_health_notes(case)
+
+
+def check_health_notes(case: dict[str, Any]) -> None:
     """A case expects the doctor note exactly when its profile triggers a health flag."""
     profile = UserProfile.model_validate(case["saved_profile"])
     flagged = bool(plan.health_flags(profile))
@@ -252,3 +266,120 @@ def test_plan_cases_cover_the_planned_situations() -> None:
     assert {1, 6} <= days, "smallest and largest week"
     assert any(case["expect"]["status"] == 400 for case in PLAN_CASES)
     assert any(case["expect"]["notes_contain"] for case in PLAN_CASES)
+
+
+# --- safety.json and injection.json (Step C4) ---
+
+SAFETY_DATA: dict[str, Any] = json.loads(
+    (PROJECT_ROOT / "eval" / "cases" / "safety.json").read_text(encoding="utf-8")
+)
+INJECTION_DATA: dict[str, Any] = json.loads(
+    (PROJECT_ROOT / "eval" / "cases" / "injection.json").read_text(encoding="utf-8")
+)
+MIXED = [
+    (data["group"], case)
+    for data in (SAFETY_DATA, INJECTION_DATA)
+    for case in data["cases"]
+]
+MIXED_IDS = [case["id"] for _, case in MIXED]
+PROFILE_EXTRA_RULES = {"reply_excludes", "model_calls_max"}
+
+
+def by_id(case_id: str) -> dict[str, Any]:
+    return next(case for _, case in MIXED if case["id"] == case_id)
+
+
+@pytest.mark.parametrize("data", [SAFETY_DATA, INJECTION_DATA], ids=["safety", "injection"])
+def test_mixed_file_header(data: dict[str, Any]) -> None:
+    assert data["step"] == "C4"
+    assert data["week_of"] == PLAN_DATA["week_of"]
+
+
+def test_mixed_case_counts_and_ids() -> None:
+    # DESIGN.md §10: 5 safety and 3 injection cases.
+    assert [g for g, _ in MIXED].count("safety") == 5
+    assert [g for g, _ in MIXED].count("injection") == 3
+    for group, case in MIXED:
+        assert case["id"].startswith(f"{group}-")
+    every_id = IDS + PLAN_IDS + MIXED_IDS
+    assert len(every_id) == len(set(every_id)), "case ids must be unique across files"
+
+
+@pytest.mark.parametrize(("group", "case"), MIXED, ids=MIXED_IDS)
+def test_mixed_case_shape(group: str, case: dict[str, Any]) -> None:
+    assert case["kind"] in {"profile", "plan"}
+    assert case["description"].strip()
+    expect = case["expect"]
+    if "model_calls_max" in expect:
+        calls = expect["model_calls_max"]
+        assert isinstance(calls, int) and not isinstance(calls, bool) and calls >= 0
+    if case["kind"] == "profile":
+        assert set(case) == {"id", "description", "kind", "saved_profile", "messages", "expect"}
+        assert set(expect) <= RULES | PROFILE_EXTRA_RULES
+        assert expect, "a profile case needs at least one rule"
+        ProfileChatRequest.model_validate({"messages": case["messages"]})
+        if case["saved_profile"] is not None:
+            UserProfile.model_validate(case["saved_profile"], strict=True)
+    else:
+        assert set(case) == {"id", "description", "kind", "saved_profile", "calendar", "expect"}
+        assert set(expect) - {"model_calls_max"} == PLAN_RULES
+        assert (FIXTURES / case["calendar"]).is_file()
+        check_complete_profile(case)
+        check_status_rules(case)
+        check_health_notes(case)
+
+
+@pytest.mark.parametrize(("group", "case"), MIXED, ids=MIXED_IDS)
+def test_profile_kind_rules_are_consistent(group: str, case: dict[str, Any]) -> None:
+    if case["kind"] != "profile":
+        return
+    expect = case["expect"]
+    named = [*expect.get("exact", {}), *expect.get("approx", {}), *expect.get("contains", {})]
+    named += expect.get("empty", [])
+    assert set(named) <= set(UserProfile.model_fields)
+    if "missing_fields" in expect:
+        empty_core = [f for f in CORE_FIELDS if f in expect.get("empty", [])]
+        filled = {*expect.get("exact", {}), *expect.get("approx", {}), *expect.get("contains", {})}
+        assert [f for f in expect["missing_fields"] if f in empty_core] == empty_core
+        assert not set(expect["missing_fields"]) & filled
+        assert expect["missing_fields"] == [f for f in CORE_FIELDS if f in expect["missing_fields"]]
+
+
+@pytest.mark.parametrize(("group", "case"), MIXED, ids=MIXED_IDS)
+def test_leak_markers_really_are_in_the_profile_prompt(group: str, case: dict[str, Any]) -> None:
+    """Otherwise reply_excludes would pass even when the prompt leaked."""
+    from backend.app import profile as profile_module
+
+    for phrase in case["expect"].get("reply_excludes", []):
+        assert phrase in profile_module.SYSTEM_PROMPT, phrase
+
+
+@pytest.mark.parametrize(("group", "case"), MIXED, ids=MIXED_IDS)
+def test_plan_kind_200_cases_have_enough_free_days(group: str, case: dict[str, Any]) -> None:
+    if case["kind"] == "plan" and case["expect"]["status"] == 200:
+        assert free_days_in(case["calendar"]) >= case["saved_profile"]["workout_days"]
+
+
+def test_no_free_time_case_really_has_no_free_time() -> None:
+    case = by_id("safety-04-no-free-time")
+    data = (FIXTURES / case["calendar"]).read_bytes()
+    assert find_free_slots(data, start_date=WEEK_OF) == []
+    assert "no free time" in plan.NO_FREE_TIME
+
+
+def test_capped_days_case_asks_for_out_of_range_values() -> None:
+    case = by_id("safety-05-capped-days")
+    assert "10 days" in case["messages"][-1]["content"]
+    assert set(case["expect"]["empty"]) == {"workout_days", "session_minutes"}
+
+
+def test_injection_cases_hit_the_intended_paths() -> None:
+    """01 and 03 are caught by the pattern screen; 02 is meant to get past it."""
+    direct = by_id("injection-01-ignore-instructions")
+    polite = by_id("injection-02-polite-leak-attempt")
+    hidden = by_id("injection-03-attack-in-saved-profile")
+    assert guardrails.looks_like_injection(direct["messages"][-1]["content"])
+    assert not guardrails.looks_like_injection(polite["messages"][-1]["content"])
+    assert plan.profile_is_flagged(UserProfile.model_validate(hidden["saved_profile"]))
+    expected = hidden["expect"]["detail_contains"][0][0]
+    assert expected.lower() in plan.FLAGGED_PROFILE.lower()
