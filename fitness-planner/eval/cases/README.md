@@ -5,11 +5,11 @@ Test cases for `eval/run_eval.py` (step C4). One JSON file per group (DESIGN.md 
 | File | Group | Step | Status |
 |---|---|---|---|
 | `profile.json` | Profile extraction, 9 cases (DESIGN.md §10 asks for 8; a 9th "vague answers" case was added) | A5 | Written; not run yet (needs the C4 harness and an API key) |
-| `plan.json` | Plan generation, 8 cases | B5 | Not written yet |
+| `plan.json` | Plan generation, 8 cases | B5 | Written; not run yet (needs the C4 harness and an API key) |
 
 **All cases use synthetic personas only.** Never put real personal data here (AGENTS.md §9).
 
-`backend/tests/test_eval_cases.py` checks offline that `profile.json` is well-formed. Run it after every edit.
+`backend/tests/test_eval_cases.py` checks offline that `profile.json` and `plan.json` are well-formed. Run it after every edit.
 
 ## Profile case format (`profile.json`)
 
@@ -71,3 +71,71 @@ Details for the scorer:
 - Also record per case (from `logs/usage.jsonl`): tokens, latency, cost.
 
 The **baseline** run (DESIGN.md §10) uses the same cases and the same scoring, with a naive single prompt instead of the full pipeline.
+
+## Plan case format (`plan.json`)
+
+```json
+{
+  "group": "plan",
+  "step": "B5",
+  "endpoint": "POST /api/plan",
+  "week_of": "2026-11-23",
+  "cases": [
+    {
+      "id": "plan-01-beginner-3-days",
+      "description": "One line on what this case tests.",
+      "saved_profile": { "experience": "beginner", "workout_days": 3, "...": "..." },
+      "calendar": "normal.ics",
+      "expect": {
+        "status": 200,
+        "passes_checks": true,
+        "session_count": 3,
+        "notes_contain": [["doctor", "physical therapist"]],
+        "detail_contains": [],
+        "exercises_exclude": ["barbell"]
+      }
+    }
+  ]
+}
+```
+
+| Key | Meaning |
+|---|---|
+| `week_of` | The Monday the fixture calendars are written for. The harness makes the calendar upload start on this day by replacing `backend.app.plan.today` (as `backend/tests/test_plan.py` does). |
+| `saved_profile` | A `UserProfile` (missing keys = empty) with every core field filled in. The harness saves it into a fresh throwaway database for every case, as for profile cases. |
+| `calendar` | A file name in `eval/fixtures/`. The harness uploads it with `POST /api/calendar` (form field `file`), then calls `POST /api/plan` with no body. |
+| `expect` | What the response must show (rules below). |
+
+How the harness runs one case (full pipeline): fresh database → `db.save_profile(saved_profile)` → upload `calendar` → `POST /api/plan`.
+
+**Free slots for scoring.** For both the pipeline and the baseline, the harness computes the slots itself: `find_free_slots(<fixture bytes>, start_date=week_of)` from `backend/app/calendar_ics.py`. These are the same slots the upload returns, and the baseline (which has no upload) is checked against the same ones.
+
+### Plan matching rules
+
+| Rule | Passes when |
+|---|---|
+| `status` | The HTTP status equals this value: `200` for a plan, `400` for a refusal. Always one check. |
+| `passes_checks` | `true`: the returned `WeeklyPlan` passes `backend.app.plan_checks.check_plan(plan, profile, free_slots)` with no problems, using the free slots described above. `null` for a 400 case. One check. |
+| `session_count` | `len(plan.sessions)` equals this value. `null` for a 400 case. One check. |
+| `notes_contain` | For each group of keywords, at least one keyword appears in the plan's `notes` (case-insensitive substring, notes joined with spaces). One check per group. |
+| `detail_contains` | Only for 400 cases. For each group, at least one keyword appears in the response's `detail`. One check per group. |
+| `exercises_exclude` | No exercise name in the plan contains any of these words (case-insensitive substring). One check for the whole list, if the list is not empty. |
+
+Details for the scorer:
+
+- The harness re-runs `check_plan()` itself instead of trusting that the API did. This lets the **baseline** (no plan checks, no retry) be scored by exactly the same rules.
+- **Before `check_plan()`, make every session time local with no time zone**, the way `backend.app.plan.finish_plan()` does (`to_local()`), because `check_plan()` compares times without a time zone. If checking still raises an error, the check counts as **not passed**; the run goes on.
+- A 200 response that is not a valid `WeeklyPlan` counts as **not schema-valid** and scores 0 on all its checks. A response with the wrong status (for example 502 when the plan failed its checks twice) also scores 0 on all checks except `status`.
+- `notes_contain` and `exercises_exclude` are judgement checks (does the model follow the profile?), not §8 rules. They count in the check-pass rate only. Every case whose expected status is 200, `plan-07` included, counts toward the constraint-pass rate as usual.
+
+**Baseline scoring.** The naive single prompt has no HTTP endpoint, so it is scored like this:
+
+- `status` and `detail_contains` are not scored for the baseline.
+- A model answer that is a valid `WeeklyPlan` counts like a 200 response; anything else counts as not schema-valid.
+- For a refusal case (`plan-08`), the baseline passes only if its answer is a valid `WeeklyPlan` with **no sessions** (it declined to plan). Any session counts as a fail. This one case counts in the baseline's check-pass rate, not in its constraint-pass rate.
+
+### Plan metrics (DESIGN.md §10)
+
+- **Constraint-pass rate (main metric):** share of the cases whose **expected** status is 200 where the actual response was a schema-valid plan (HTTP 200 for the pipeline) **and** `check_plan()` found no problems.
+- **Check-pass rate:** checks passed ÷ checks total, over all plan cases. Also report it per case.
+- Also record per case (from `logs/usage.jsonl`): number of model calls (1, or 2 with a retry), tokens, latency, cost. A refused case (`plan-08`) makes no model call.

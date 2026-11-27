@@ -1,0 +1,218 @@
+{
+  "group": "plan",
+  "step": "B5",
+  "endpoint": "POST /api/plan",
+  "note": "Synthetic personas only. Format and matching rules: eval/cases/README.md.",
+  "week_of": "2026-11-23",
+  "cases": [
+    {
+      "id": "plan-01-beginner-3-days",
+      "description": "Typical beginner: 3 short sessions in a normal work week.",
+      "saved_profile": {
+        "name": "Alex Example",
+        "height_cm": 172,
+        "weight_kg": 68,
+        "experience": "beginner",
+        "goals": ["build strength"],
+        "workout_days": 3,
+        "session_minutes": 45,
+        "equipment": ["dumbbells"]
+      },
+      "calendar": "normal.ics",
+      "expect": {
+        "status": 200,
+        "passes_checks": true,
+        "session_count": 3,
+        "notes_contain": [],
+        "detail_contains": [],
+        "exercises_exclude": []
+      }
+    },
+    {
+      "id": "plan-02-intermediate-5-days-split",
+      "description": "Five 60-minute gym sessions with a split preference; weekday free time is short morning, lunch and evening gaps.",
+      "saved_profile": {
+        "name": "Jordan Sample",
+        "height_cm": 180,
+        "weight_kg": 82,
+        "experience": "intermediate",
+        "goals": ["muscle gain"],
+        "workout_days": 5,
+        "session_minutes": 60,
+        "split_preference": "upper/lower",
+        "equipment": ["barbell", "dumbbells", "cable machine", "bench"]
+      },
+      "calendar": "normal.ics",
+      "expect": {
+        "status": 200,
+        "passes_checks": true,
+        "session_count": 5,
+        "notes_contain": [],
+        "detail_contains": [],
+        "exercises_exclude": []
+      }
+    },
+    {
+      "id": "plan-03-one-day",
+      "description": "Smallest plan: one 30-minute session a week.",
+      "saved_profile": {
+        "name": "Casey Test",
+        "height_cm": 165,
+        "weight_kg": 60,
+        "experience": "beginner",
+        "goals": ["general fitness"],
+        "workout_days": 1,
+        "session_minutes": 30
+      },
+      "calendar": "normal.ics",
+      "expect": {
+        "status": 200,
+        "passes_checks": true,
+        "session_count": 1,
+        "notes_contain": [],
+        "detail_contains": [],
+        "exercises_exclude": []
+      }
+    },
+    {
+      "id": "plan-04-six-days-empty-calendar",
+      "description": "Most sessions allowed (6) on a free week; the plan must still leave a rest day.",
+      "saved_profile": {
+        "name": "Riley Placeholder",
+        "height_cm": 178,
+        "weight_kg": 75,
+        "experience": "advanced",
+        "goals": ["endurance", "strength"],
+        "workout_days": 6,
+        "session_minutes": 90,
+        "equipment": ["full gym"]
+      },
+      "calendar": "empty.ics",
+      "expect": {
+        "status": 200,
+        "passes_checks": true,
+        "session_count": 6,
+        "notes_contain": [],
+        "detail_contains": [],
+        "exercises_exclude": []
+      }
+    },
+    {
+      "id": "plan-05-packed-one-slot",
+      "description": "Packed calendar with one free hour (Sun 21:00-22:00); the single session must fit inside it.",
+      "saved_profile": {
+        "name": "Morgan Mock",
+        "height_cm": 170,
+        "weight_kg": 70,
+        "experience": "beginner",
+        "goals": ["stay active"],
+        "workout_days": 1,
+        "session_minutes": 45
+      },
+      "calendar": "packed.ics",
+      "expect": {
+        "status": 200,
+        "passes_checks": true,
+        "session_count": 1,
+        "notes_contain": [],
+        "detail_contains": [],
+        "exercises_exclude": []
+      }
+    },
+    {
+      "id": "plan-06-short-bodyweight-sessions",
+      "description": "Four 20-minute sessions with no equipment; no gym exercises allowed.",
+      "saved_profile": {
+        "name": "Taylor Fake",
+        "height_cm": 160,
+        "weight_kg": 55,
+        "experience": "beginner",
+        "goals": ["lose fat", "feel fitter"],
+        "workout_days": 4,
+        "session_minutes": 20,
+        "equipment": ["none, bodyweight only"]
+      },
+      "calendar": "normal.ics",
+      "expect": {
+        "status": 200,
+        "passes_checks": true,
+        "session_count": 4,
+        "notes_contain": [],
+        "detail_contains": [],
+        "exercises_exclude": [
+          "barbell",
+          "dumbbell",
+          "goblet",
+          "deadlift",
+          "bench press",
+          "overhead press",
+          "leg press",
+          "lat pulldown",
+          "cable",
+          "pull-up",
+          "band",
+          "curl",
+          "triceps",
+          "lateral raise",
+          "rowing machine",
+          "elliptical",
+          "stationary bike"
+        ]
+      }
+    },
+    {
+      "id": "plan-07-knee-injury-doctor-note",
+      "description": "A serious knee injury: the plan adds the doctor/physical therapist note and avoids knee-heavy exercises.",
+      "saved_profile": {
+        "name": "Sam Sample",
+        "height_cm": 183,
+        "weight_kg": 90,
+        "experience": "beginner",
+        "goals": ["get back in shape"],
+        "workout_days": 3,
+        "session_minutes": 45,
+        "equipment": ["dumbbells"],
+        "injuries": ["torn ACL in my left knee last year"]
+      },
+      "calendar": "normal.ics",
+      "expect": {
+        "status": 200,
+        "passes_checks": true,
+        "session_count": 3,
+        "notes_contain": [["doctor", "physical therapist"]],
+        "detail_contains": [],
+        "exercises_exclude": [
+          "squat",
+          "lunge",
+          "step-up",
+          "leg press",
+          "jumping jacks",
+          "jog",
+          "stair climb"
+        ]
+      }
+    },
+    {
+      "id": "plan-08-too-few-free-days",
+      "description": "Three workouts asked for, but the packed calendar has free time on one day only: refused without a model call.",
+      "saved_profile": {
+        "name": "Jamie Demo",
+        "height_cm": 175,
+        "weight_kg": 72,
+        "experience": "intermediate",
+        "goals": ["strength"],
+        "workout_days": 3,
+        "session_minutes": 45
+      },
+      "calendar": "packed.ics",
+      "expect": {
+        "status": 400,
+        "passes_checks": null,
+        "session_count": null,
+        "notes_contain": [],
+        "detail_contains": [["free time on only 1"], ["3 workouts"]],
+        "exercises_exclude": []
+      }
+    }
+  ]
+}

@@ -37,7 +37,7 @@ Status: Not started · In progress · Done · Blocked
 | B3 | Plan checks + exercise allow-list + retry | 2 | Ben | Done offline (`plan_checks.py`, 45-exercise `app/data/exercises.json`, one retry in `plan.py`; 392 back-end tests pass; not yet tried on the real model — no API key) | 2026-11-26 Ben |
 | C3 | Input guardrails + wiring | 2 | Ben | Done (wired into the profile chat; B2 wired the `.ics` size check, health flags, the 400 refusal format and an injection screen of saved-profile text before the plan call) | 2026-11-26 Ben |
 | A5 | 8 profile test cases | 3 | Ben | In progress (9 cases in `eval/cases/profile.json`, format in `eval/cases/README.md`, offline file check passes; not run or scored — needs the C4 harness and an API key) | 2026-11-26 Ben |
-| B5 | 8 plan test cases + fixtures | 3 | ? | Not started | — |
+| B5 | 8 plan test cases + fixtures | 3 | Ben | In progress (8 cases in `eval/cases/plan.json` on the existing fixtures, format and scoring incl. baseline in `eval/cases/README.md`, offline file check passes; not run or scored — needs the C4 harness and an API key) | 2026-11-26 Ben |
 | C4 | Eval harness + safety and injection cases | 3 | ? | Not started | — |
 | C5 | Baseline run, usage summary, README sections | 3 | ? | Not started | — |
 | — | Phase 4: polish, README, demo video | 4 | all | Not started | — |
@@ -54,7 +54,10 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 - [x] **Team:** Single local user with no login for the demo (DESIGN.md §2) — confirmed by Ben 2026-11-26.
 - [ ] **B / C:** `api.types.ts` now also has `ChatMessage` and `ProfileChatRequest` (the body of `POST /api/profile/chat`; they mirror `ChatMessage` and `ProfileChatRequest` in `backend/app/profile.py`, not `schemas.py`). Ben approved 2026-11-26. Keep them in step if the chat request changes.
 - [ ] **C4:** Build `run_eval.py` / `metrics.py` to read `eval/cases/profile.json` using the format and scoring rules in `eval/cases/README.md` (written in A5). Each case needs its own throwaway database (patch `db.DB_PATH`).
-- [ ] **B5:** Reuse the case-file layout in `eval/cases/README.md` for `plan.json`, so C4 has one format to read.
+- [x] **B5:** Reuse the case-file layout in `eval/cases/README.md` for `plan.json` — done 2026-11-26 (same file layout; plan rules in the README's "Plan case format" section).
+- [ ] **C4:** Build the plan side of `run_eval.py` / `metrics.py` from `eval/cases/README.md` → "Plan case format" (pipeline run, free slots, time conversion, baseline scoring).
+- [ ] **Ben (B5):** §8 bans calorie and weight-loss targets, but nothing checks it. Add a `notes_exclude` rule (e.g. "calorie") to the plan case format and use it on `plan-06` ("lose fat")?
+- [ ] **B:** The too-few-free-days refusal says "only 1 days" (plural bug in `plan.py`). `plan-08` matches "free time on only 1", so fixing it will not break the case.
 - [ ] **Team / C5:** There are 9 profile cases, not 8 (a "vague answers" case was added), so the eval has 25 cases instead of DESIGN.md §10's 24. Update §10's table when C5 writes up the results.
 - [ ] **A / B3:** Workout log exercise names are free text (1–100 characters). Once B3's `exercises.json` exists, should the log page suggest or require names from it?
 - [x] **C3:** The profile page blocks chat messages over 2,000 characters in the browser only — the back end now enforces it too (C3, 2026-11-26).
@@ -104,6 +107,8 @@ Each is addressed to a person or workstream. Ask at `/start` when that person or
 
 | Date | Decision | Decided by |
 |---|---|---|
+| 2026-11-26 | Start Phase 3 with B5 (before C4), offline, although Phases 1–2 are not yet tried on the real model | Ben |
+| 2026-11-26 | B5: 8 plan cases on the existing fixtures for the week of 2026-11-23; main metric = constraint-pass rate with the harness re-running `check_plan()` on slots it computes itself (times made local first, a crash = not passed); extra checks: status, session count, notes keywords, refusal keywords, excluded exercise words (judgement checks count in the check-pass rate only); baseline: status/detail not scored, `plan-08` passes only with zero sessions | Ben |
 | 2026-11-26 | Contract change: add `CalendarResponse` (`{free_slots: FreeSlot[]}`) to `frontend/src/app/core/api.types.ts`, mirroring `CalendarResponse` in `backend/app/plan.py` | Ben |
 | 2026-11-26 | B4: `/plan` page between Profile and Log in the menu; shared `core/error-text.ts` used by the plan page only; a new upload clears the plan on screen; files over 200 KB refused in the browser too; one always-present status line for screen readers; tested with fake HTTP plus a browser check | Ben |
 | 2026-11-26 | B3: exercise names match ignoring case and extra spaces, and the listed activity type must match; fewer free days than `workout_days` → 400 refusal before any model call; a second failed plan → 502 `{"error": "The plan did not pass the checks", "detail": problems}`, nothing saved; the retry sends the finished failed plan plus the problem list (at most 2 calls); session length = end − start | Ben |
